@@ -1,16 +1,20 @@
 // apps/backend/src/server.ts
 
 import app from './app';
-import { connectDatabase } from '#core/config/database';
+// import { connectDatabase } from '#core/config/database'; // موقتاً غیرفعال شد تا سرور بدون نیاز به دیتابیس اجرا شود
 import { env } from '#core/config/env';
 import { logger } from '#core/utils/logger';
+import { botService } from '#modules/telegram-bot/bot.service';
 
 const startServer = async (): Promise<void> => {
   try {
-    // ۱. ابتدا اتصال به دیتابیس
-    await connectDatabase();
+    // ۱. ابتدا اتصال به دیتابیس (فعلاً کامنت شده است)
+    // await connectDatabase();
 
-    // ۲. سپس راه‌اندازی سرور اکسپرس
+    // ۲. راه‌اندازی ربات تلگرام
+    await botService.launch();
+
+    // ۳. راه‌اندازی سرور اکسپرس
     app.listen(env.PORT, () => {
       logger.info(
         `Server is running on port ${env.PORT} in ${env.NODE_ENV} mode.`
