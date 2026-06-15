@@ -5,65 +5,49 @@ import mongoose from 'mongoose';
 import { UserModel } from '#modules/auth/user.model';
 import { ForbiddenUserModel } from '#modules/auth/forbidden-user.model';
 import { TenantModel } from '#modules/tenant/tenant.model';
-import { env } from '#config/env';
 import { logger } from '#utils/logger';
+import {
+  getStartKeyboard,
+  getWebAppMenuButton
+} from '#modules/telegram-bot/utils/keyboards.util';
 
 interface ExtendedContext extends Context {
   payload?: string;
 }
 
-// کپسوله‌سازی منطق نمایشی (Presentational Constants) برای رعایت اصل DRY
-const WEB_APP_MENU_BUTTON = {
-  type: 'web_app' as const,
-  text: 'Open',
-  web_app: { url: env.MINI_APP_URL }
-};
-
-const BOT_NATIVE_KEYBOARD = {
-  inline_keyboard: [
-    [
-      { text: '👤 پروفایل تلگرامی من', callback_data: 'action_profile' },
-      { text: '❓ راهنمای چالش‌ها', callback_data: 'action_help' }
-    ]
-  ]
-};
-
 export const startCommand = async (
   ctx: ExtendedContext,
   next: () => Promise<void>
 ): Promise<void> => {
-  // 🚨 مدیریت Edge Case: جلوگیری از رهگیری دستورات گروه توسط هندلر پی‌وی
-  if (ctx.chat?.type !== 'private') {
-    return next();
-  }
+  if (ctx.chat?.type !== 'private') return next();
 
   const telegramId = ctx.from?.id;
   if (!telegramId) return;
 
-  // رعایت ماژولاریتی: تابع متمرکز برای اعطای دسترسی پنل
   const grantDashboardAccess = async (
-    welcomeMessage: string
+    welcomeMessage: string,
+    role: 'mother' | 'main_admin' | 'sub_admin' | 'user' | 'guest'
   ): Promise<void> => {
-    await ctx.setChatMenuButton(WEB_APP_MENU_BUTTON);
-    await ctx.reply(welcomeMessage, { reply_markup: BOT_NATIVE_KEYBOARD });
+    await ctx.setChatMenuButton(getWebAppMenuButton());
+    await ctx.reply(welcomeMessage, { reply_markup: getStartKeyboard(role) });
   };
 
   try {
-    // استفاده از lean برای بهینه‌سازی حافظه (Memory Leak Protection در فرآیندهای Read-Only)
     const isForbidden = await ForbiddenUserModel.findOne({
       telegramId,
       isBlacklisted: true
     }).lean();
-
     if (isForbidden) {
       await ctx.setChatMenuButton({ type: 'default' });
-      await ctx.reply(
-        '❌ حساب کاربری شما به دلیل تلاش‌های ناموفق مکرر برای ورود لایسنس مسدود شده است.'
-      );
+      await ctx.reply('❌ حساب کاربری شما مسدود شده است.');
       return;
     }
 
     const payload = ctx.payload;
+
+    // ------------------------------------------------------------------
+    // جریان ورود با لینک دعوت اختصاصی گروه (Deep Link Payload)
+    // ------------------------------------------------------------------
     if (payload && payload.startsWith('ref_')) {
       const tenantId = payload.replace('ref_', '');
 
@@ -94,12 +78,13 @@ export const startCommand = async (
 
         if (!allowedStatuses.includes(chatMember.status)) {
           await ctx.reply(
-            '❌ شما عضو گروه این چالش مطالعاتی نیستید و امکان ثبت‌نام از این طریق را ندارید.'
+            '❌ شما عضو گروه این چالش نیستید و امکان ثبت‌نام ندارید.'
           );
           return;
         }
 
-        await UserModel.findOneAndUpdate(
+        // آپدیت اطلاعات کاربر و دریافت نقش واقعی او در قالب updatedUser
+        const updatedUser = await UserModel.findOneAndUpdate(
           { telegramId },
           {
             $set: {
@@ -110,38 +95,44 @@ export const startCommand = async (
             },
             $setOnInsert: { role: 'user' }
           },
-          { upsert: true, new: true }
+          { upsert: true, new: true } // 👈 new: true باعث می‌شود داکیومنت جدید/بروز شده برگردد
         );
 
         logger.info(
-          `User successfully enrolled via group deep link. TenantId: ${tenantId}, TelegramId: ${telegramId}`
+          `User enrolled via deep link. TenantId: ${tenantId}, TelegramId: ${telegramId}`
         );
+
+        // 💡 فیکس اصلی: استخراج نقش واقعی کاربر از دیتابیس به جای هاردکد کردن 'user'
+        const actualRole = updatedUser.role as
+          | 'mother'
+          | 'main_admin'
+          | 'sub_admin'
+          | 'user';
 
         await grantDashboardAccess(
           `🎉 خوش آمدید ${ctx.from?.first_name || 'کاربر'} عزیز!\nعضویت شما در چالش تأیید شد.\n\n` +
-            `📱 **جهت ورود به اپلیکیشن و مشاهده پنل خود، روی دکمه آبی‌رنگ (Open) در پایین صفحه کلیک کنید.**\n\n` +
-            `🤖 همچنین برای تعامل با خود ربات می‌توانید از دکمه‌های زیر استفاده نمایید:`
+            `📱 **جهت ورود به اپلیکیشن، روی دکمه آبی‌رنگ (Open) کلیک کنید.**`,
+          actualRole
         );
         return;
       } catch (tgError: unknown) {
-        logger.error(
-          'Failed to verify group membership through getChatMember:',
-          tgError
-        );
-        await ctx.reply(
-          '⚠️ خطایی در تایید وضعیت عضویت شما رخ داد. لطفاً اطمینان حاصل کنید که هنوز در گروه حضور دارید.'
-        );
+        logger.error('Failed to verify group membership:', tgError);
+        await ctx.reply('⚠️ خطایی در تایید وضعیت عضویت شما رخ داد.');
         return;
       }
     }
 
+    // ------------------------------------------------------------------
+    // جریان ورود با دستور عادی /start
+    // ------------------------------------------------------------------
     const user = await UserModel.findOne({ telegramId }).lean();
 
     if (user && ['mother', 'main_admin', 'sub_admin'].includes(user.role)) {
       await grantDashboardAccess(
-        `👑 خوش آمدید ${ctx.from?.first_name || 'کاربر'} عزیز.\nشما دسترسی مدیریتی دارید.\n\n` +
-          `⚙️ **برای باز کردن کنترل‌پنل مدیریت چالش‌ها، روی دکمه آبی‌رنگ (Open) در گوشه سمت چپ پایین کلیک کنید.**\n\n` +
-          `🤖 تنظیمات داخلی ربات:`
+        `👑 خوش آمدید ${ctx.from?.first_name || 'ادمین'} عزیز.\n\n` +
+          `⚙️ **برای باز کردن کنترل‌پنل مدیریت چالش‌ها، روی دکمه آبی‌رنگ (Open) کلیک کنید.**\n\n` +
+          `🤖 تنظیمات داخلی ربات:`,
+        user.role as 'mother' | 'main_admin' | 'sub_admin'
       );
       return;
     }
@@ -149,8 +140,9 @@ export const startCommand = async (
     if (user && user.role === 'user') {
       await grantDashboardAccess(
         `🎯 خوش آمدید ${ctx.from?.first_name || 'کاربر'} عزیز.\n\n` +
-          `📊 **جهت مشاهده داشبورد مسابقات و جدول امتیازات، روی دکمه آبی‌رنگ (Open) در پایین صفحه کلیک کنید.**\n\n` +
-          `🤖 گزینه‌های ربات:`
+          `📊 **جهت مشاهده داشبورد مسابقات، روی دکمه آبی‌رنگ (Open) کلیک کنید.**\n\n` +
+          `🤖 گزینه‌های ربات:`,
+        'user'
       );
       return;
     }
@@ -159,14 +151,10 @@ export const startCommand = async (
     await ctx.setChatMenuButton({ type: 'default' });
     await ctx.reply(
       `به سرزمین رقابت و چالش‌های مطالعاتی خوش آمدید! 🎯\n\n` +
-        `برای فعال‌سازی ربات در این گروه یا ثبت اکانت ادمین، لطفاً **کد لایسنس ۱۶ رقمی** خود را ارسال کنید.\n\n` +
-        `💡 نکته: اگر شما مالک اصلی پلتفرم هستید، کد محرمانه تنظیم شده در سرور را بفرستید.\n` +
-        `⚠️ هشدارهای امنیتی: در صورت ۳ بار ورود لایسنس اشتباه، دسترسی شما برای همیشه مسدود خواهد شد.`
+        `برای فعال‌سازی ربات، لطفاً **کد لایسنس ۱۶ رقمی** خود را ارسال کنید.`
     );
   } catch (error) {
     logger.error('Error processing startCommand structure:', error);
-    await ctx.reply(
-      '⚠️ خطایی در بارگذاری اطلاعات اولیه رخ داد. لطفاً مجدداً دستور /start را ارسال کنید.'
-    );
+    await ctx.reply('⚠️ خطایی رخ داد. مجدداً دستور /start را ارسال کنید.');
   }
 };

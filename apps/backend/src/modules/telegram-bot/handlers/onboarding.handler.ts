@@ -17,7 +17,9 @@ export const handleBotOnboardingText = async (ctx: Context): Promise<void> => {
   if (!telegramId) return;
 
   try {
-    const forbiddenCheck = await ForbiddenUserModel.findOne({ telegramId });
+    const forbiddenCheck = await ForbiddenUserModel.findOne({
+      telegramId
+    }).lean();
     if (forbiddenCheck?.isBlacklisted) {
       await ctx.reply(
         '❌ حساب کاربری شما مسدود شده است و امکان استفاده از ربات را ندارید.'
@@ -35,9 +37,7 @@ export const handleBotOnboardingText = async (ctx: Context): Promise<void> => {
 
     let isValidCodeProvided = false;
 
-    // ------------------------------------------------------------------
-    // جریان اکانت مادر (تراکنش اتمیک)
-    // ------------------------------------------------------------------
+    // --- جریان اکانت مادر ---
     if (normalizedInput === normalizedMotherCode) {
       isValidCodeProvided = true;
       try {
@@ -61,22 +61,26 @@ export const handleBotOnboardingText = async (ctx: Context): Promise<void> => {
           '👑 **مالک پلتفرم تایید شد!**\nشما به عنوان اکانت مادر شناخته شدید.\nبرای فعال‌سازی چالش‌ها، کافیست ربات را به گروه‌های خود ببرید و در تاپیک مربوطه کلمه `start` را بفرستید.'
         );
         return;
-      } catch (mongoError: any) {
-        if (mongoError.code === 11000) {
-          await ctx.reply('❌ پلتفرم در حال حاضر یک اکانت مادر مستقل دارد.');
-          return;
+      } catch (mongoError: unknown) {
+        if (
+          typeof mongoError === 'object' &&
+          mongoError !== null &&
+          'code' in mongoError
+        ) {
+          if ((mongoError as { code: number }).code === 11000) {
+            await ctx.reply('❌ پلتفرم در حال حاضر یک اکانت مادر مستقل دارد.');
+            return;
+          }
         }
         throw mongoError;
       }
     }
 
-    // ------------------------------------------------------------------
-    // جریان کاربران عادی: رزرو اتمیک لایسنس (جلوگیری از Race Condition)
-    // ------------------------------------------------------------------
+    // --- جریان رزرو اتمیک لایسنس کاربران (Race Condition Protected) ---
     if (normalizedInput.length === 16 && !isValidCodeProvided) {
       const targetLicense = await TenantModel.findOne({
         licenseCode: normalizedInput
-      });
+      }).lean();
 
       if (targetLicense) {
         isValidCodeProvided = true;
@@ -87,6 +91,7 @@ export const handleBotOnboardingText = async (ctx: Context): Promise<void> => {
           );
           return;
         }
+
         if (
           targetLicense.mainAdminId &&
           targetLicense.mainAdminId !== telegramId
@@ -95,21 +100,32 @@ export const handleBotOnboardingText = async (ctx: Context): Promise<void> => {
           return;
         }
 
-        // آپدیت اتمیک با شرط عدم تغییر وضعیت توسط ترد دیگر
+        // بررسی انقضا در خود دیتابیس انجام می‌شود تا از Race Condition در سطح صدم ثانیه جلوگیری شود
         const reserved = await TenantModel.findOneAndUpdate(
           {
             _id: targetLicense._id,
             isBound: false,
-            mainAdminId: { $in: [null, telegramId] }
+            mainAdminId: { $in: [null, telegramId] },
+            $or: [
+              { expiresAt: null },
+              { expiresAt: { $gt: new Date() } } // فقط در صورتی آپدیت کن که زمان منقضی نشده باشد
+            ]
           },
           { $set: { mainAdminId: telegramId } },
           { new: true }
         );
 
         if (!reserved) {
-          await ctx.reply(
-            '⚠️ خطای همزمانی! این لایسنس در همین لحظه توسط فرآیند دیگری اشغال شد.'
-          );
+          // اگر reserved برنگشت، یعنی یا منقضی شده یا در کسر ثانیه توسط کس دیگری اشغال شده
+          if (targetLicense.expiresAt && targetLicense.expiresAt < new Date()) {
+            await ctx.reply(
+              '❌ این لایسنس منقضی شده است (اعتبار ۱ ساعته آن به پایان رسیده).'
+            );
+          } else {
+            await ctx.reply(
+              '⚠️ خطای همزمانی! این لایسنس در همین لحظه نامعتبر یا توسط فرآیند دیگری اشغال شد.'
+            );
+          }
           return;
         }
 
@@ -126,9 +142,7 @@ export const handleBotOnboardingText = async (ctx: Context): Promise<void> => {
       }
     }
 
-    // ------------------------------------------------------------------
-    // مدیریت اتمیک شمارش خطاها
-    // ------------------------------------------------------------------
+    // --- مدیریت خطای رمز (Attempts) ---
     if (!isValidCodeProvided && rawText.length >= 6) {
       const updatedForbidden = await ForbiddenUserModel.findOneAndUpdate(
         { telegramId },

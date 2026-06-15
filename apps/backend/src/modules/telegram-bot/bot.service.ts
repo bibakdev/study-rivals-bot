@@ -6,6 +6,7 @@ import { logger } from '#utils/logger';
 import { startCommand } from '#modules/telegram-bot/commands/start.command';
 import { handleBotOnboardingText } from '#modules/telegram-bot/handlers/onboarding.handler';
 import { handleGroupTenantMessages } from '#modules/telegram-bot/handlers/tenant.handler';
+import { handleGenerateLicense } from '#modules/telegram-bot/handlers/mother.handler';
 
 export class BotService {
   private bot: Telegraf;
@@ -23,6 +24,9 @@ export class BotService {
   private initializeCommandsAndHandlers(): void {
     // ۱. ثبت دستور استارت عمومی
     this.bot.start(startCommand);
+
+    // اتصال اکشن دکمه شیشه‌ای تولید لایسنس (ویژه مادر)
+    this.bot.action('action_generate_license', handleGenerateLicense);
 
     // ۲. مدیریت هوشمند رویدادهای متنی بر اساس مرزبندی محیط چت (تلگرام کور-لاجیک)
     this.bot.on('text', async (ctx, next) => {
