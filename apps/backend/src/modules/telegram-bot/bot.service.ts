@@ -1,7 +1,11 @@
+// apps/backend/src/modules/telegram-bot/bot.service.ts
+
 import { Telegraf } from 'telegraf';
 import { env } from '#core/config/env';
 import { logger } from '#utils/logger';
 import { startCommand } from '#modules/telegram-bot/commands/start.command';
+import { handleBotOnboardingText } from '#modules/telegram-bot/handlers/onboarding.handler';
+import { handleGroupTenantMessages } from '#modules/telegram-bot/handlers/tenant.handler';
 
 export class BotService {
   private bot: Telegraf;
@@ -13,20 +17,35 @@ export class BotService {
     }
 
     this.bot = new Telegraf(env.BOT_TOKEN);
-    this.initializeCommands();
+    this.initializeCommandsAndHandlers();
   }
 
-  private initializeCommands(): void {
-    // ثبت دستورات ربات
+  private initializeCommandsAndHandlers(): void {
+    // ۱. ثبت دستور استارت عمومی
     this.bot.start(startCommand);
+
+    // ۲. مدیریت هوشمند رویدادهای متنی بر اساس مرزبندی محیط چت (تلگرام کور-لاجیک)
+    this.bot.on('text', async (ctx, next) => {
+      const chatType = ctx.chat?.type;
+
+      if (chatType === 'private') {
+        // محیط پیوی: پردازش Onboarding و احراز هویت اولیه اکانت مادر
+        await handleBotOnboardingText(ctx);
+      } else if (chatType === 'group' || chatType === 'supergroup') {
+        // محیط گروه: پردازش فعال‌سازی لایسنس مستأجرین و اتصال اتمیک به تاپیک چالش
+        await handleGroupTenantMessages(ctx);
+      }
+
+      return next();
+    });
   }
 
-  // 👈 علامت => حذف شد و به شکل یک متد استاندارد کلاس نوشته شد
   public async launch(): Promise<void> {
     try {
-      // اجرای ربات
       await this.bot.launch();
-      logger.info('Telegram Bot successfully launched.');
+      logger.info(
+        'Telegram Bot successfully launched with segregated Tenant & Onboarding architecture.'
+      );
     } catch (error) {
       logger.error('Failed to launch Telegram bot', error);
     }
@@ -37,5 +56,4 @@ export class BotService {
   }
 }
 
-// ساخت یک نمونه سینگلتون (Singleton) برای استفاده در کل برنامه
 export const botService = new BotService();

@@ -1,15 +1,15 @@
 // apps/backend/src/server.ts
 
 import app from './app';
-// import { connectDatabase } from '#core/config/database'; // موقتاً غیرفعال شد تا سرور بدون نیاز به دیتابیس اجرا شود
+import { connectDatabase } from '#core/config/database';
 import { env } from '#core/config/env';
 import { logger } from '#core/utils/logger';
 import { botService } from '#modules/telegram-bot/bot.service';
 
 const startServer = async (): Promise<void> => {
   try {
-    // ۱. ابتدا اتصال به دیتابیس (فعلاً کامنت شده است)
-    // await connectDatabase();
+    // ۱. اتصال به دیتابیس فعال شد
+    await connectDatabase();
 
     // ۲. راه‌اندازی ربات تلگرام
     await botService.launch();
