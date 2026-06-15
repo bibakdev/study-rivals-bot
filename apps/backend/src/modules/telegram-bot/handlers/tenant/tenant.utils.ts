@@ -1,7 +1,10 @@
+// apps/backend/src/modules/telegram-bot/handlers/tenant/tenant.utils.ts
+
 import { Context } from 'telegraf';
 import mongoose from 'mongoose';
 import { Update } from 'telegraf/types';
 import { UserModel } from '#modules/auth/user.model';
+import { TenantMemberModel } from '#modules/tenant/tenant-member.model';
 
 interface ThreadMessage {
   message_thread_id?: number;
@@ -36,18 +39,29 @@ export const generateEnrollmentKeyboard = (
 
 export const promoteToAdmin = async (
   telegramId: number,
-  ctx: Context<Update>
+  ctx: Context<Update>,
+  tenantId: mongoose.Types.ObjectId
 ): Promise<void> => {
+  // ۱. اطمینان از وجود کاربر در سیستم یکپارچه با نقش پایه و پیش‌فرض (standard)
   await UserModel.findOneAndUpdate(
     { telegramId },
     {
-      $set: { role: 'main_admin' },
       $setOnInsert: {
         firstName: ctx.from?.first_name || 'ادمین',
         lastName: ctx.from?.last_name,
         username: ctx.from?.username,
-        languageCode: ctx.from?.language_code
+        languageCode: ctx.from?.language_code,
+        role: 'standard'
       }
+    },
+    { upsert: true }
+  );
+
+  // ۲. ایجاد یا آپدیت رکورد اختصاصی کاربر در گروه مربوطه به عنوان ادمین اصلی
+  await TenantMemberModel.findOneAndUpdate(
+    { telegramId, tenantId },
+    {
+      $set: { tenantRole: 'main_admin' }
     },
     { upsert: true }
   );

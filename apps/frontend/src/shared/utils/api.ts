@@ -1,9 +1,12 @@
+// apps/frontend/src/shared/utils/api.ts
+
 import axios, {
   type InternalAxiosRequestConfig,
   type AxiosError,
   type AxiosResponse
 } from 'axios';
 import type { TelegramWebApp } from '@providers/TelegramProvider';
+import { useTenantStore } from '@stores/useTenantStore';
 
 // قراردادهای پاسخی که از سمت بک‌اند می‌آید
 export interface ApiSuccessResponse<T> {
@@ -32,12 +35,21 @@ export const apiClient = axios.create({
 // اینترسپتور درخواست
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    // ۱. تزریق هدر Authorization (اطلاعات امنیتی کاربر تلگرام)
     if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
       const initData = (window.Telegram.WebApp as TelegramWebApp).initData;
       if (initData) {
         config.headers.Authorization = `Bearer ${initData}`;
       }
     }
+
+    // ۲. 👈 استخراج شناسه گروه از استور سراسری و تزریق به هدر
+    // به دلیل استفاده از getState، این کد کاملاً با React خارج از کانتکست (مانند توابع خام) سازگار است
+    const tenantId = useTenantStore.getState().tenantId;
+    if (tenantId) {
+      config.headers['X-Tenant-Id'] = tenantId;
+    }
+
     return config;
   },
   (error: unknown) => Promise.reject(error)

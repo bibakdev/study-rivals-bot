@@ -1,6 +1,6 @@
 // packages/shared-types/src/models/user.types.ts
 
-export type UserRole = 'mother' | 'main_admin' | 'sub_admin' | 'user';
+export type UserRole = 'mother' | 'standard';
 
 export interface User {
   id: string;

@@ -25,7 +25,7 @@ const tenantSchema = new Schema<ITenantDocument>(
       trim: true,
       index: true
     },
-    chatId: { type: Number, default: null, index: true },
+    chatId: { type: Number, default: null },
     topicId: { type: Number, default: null },
     mainAdminId: { type: Number, default: null, index: true },
     isBound: { type: Boolean, default: false, required: true },

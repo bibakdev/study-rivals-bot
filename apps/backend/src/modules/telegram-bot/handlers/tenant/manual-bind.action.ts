@@ -1,3 +1,5 @@
+// apps/backend/src/modules/telegram-bot/handlers/tenant/manual-bind.action.ts
+
 import { Context } from 'telegraf';
 import { Update } from 'telegraf/types';
 import mongoose from 'mongoose';
@@ -48,7 +50,12 @@ export const handleManualBind = async (
       return;
     }
 
-    await promoteToAdmin(telegramId, ctx);
+    // آپدیت معماری: انتقال شناسه مستأجر برای ایجاد رکورد نقش اختصاصی گروه
+    await promoteToAdmin(
+      telegramId,
+      ctx,
+      boundLicense._id as mongoose.Types.ObjectId
+    );
 
     logger.info(
       `Tenant bound from reservation. ChatId: ${chatId}, TopicId: ${extractedTopicId}`
