@@ -6,8 +6,7 @@ import { logger } from '#utils/logger';
 import { startCommand } from '#modules/telegram-bot/commands/start/start.router';
 import { handleBotOnboardingText } from '#modules/telegram-bot/handlers/onboarding.handler';
 import { handleGroupTenantMessages } from '#modules/telegram-bot/handlers/tenant.handler';
-import { handleGenerateLicense } from '#modules/telegram-bot/handlers/mother.handler';
-
+import { handleGenerateLicense } from '#modules/telegram-bot/handlers/mother/generate-license.action';
 export class BotService {
   private bot: Telegraf;
 

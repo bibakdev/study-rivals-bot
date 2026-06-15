@@ -1,10 +1,7 @@
-// apps/backend/src/modules/telegram-bot/handlers/mother.handler.ts
-
 import { Context } from 'telegraf';
-import crypto from 'crypto';
 import { UserModel } from '#modules/auth/user.model';
-import { TenantModel } from '#modules/tenant/tenant.model';
 import { logger } from '#utils/logger';
+import { generateUniqueLicense } from './mother.service';
 
 export const handleGenerateLicense = async (ctx: Context): Promise<void> => {
   if (!ctx.from) return;
@@ -18,41 +15,8 @@ export const handleGenerateLicense = async (ctx: Context): Promise<void> => {
       return;
     }
 
-    let code = '';
-    let isCreated = false;
-    let attempts = 0;
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-
-    // مدیریت Edge Case: حلقه Retry برای جلوگیری از خطای Duplicate Key (11000)
-    while (!isCreated && attempts < 3) {
-      code = crypto.randomBytes(8).toString('hex').toUpperCase();
-      try {
-        await TenantModel.create({
-          licenseCode: code,
-          isBound: false,
-          isActive: false,
-          expiresAt
-        });
-        isCreated = true;
-      } catch (err: unknown) {
-        if (
-          typeof err === 'object' &&
-          err !== null &&
-          'code' in err &&
-          (err as { code: number }).code === 11000
-        ) {
-          attempts++;
-        } else {
-          throw err; // خطای غیرمرتبط با تکراری بودن کد
-        }
-      }
-    }
-
-    if (!isCreated) {
-      throw new Error(
-        'Failed to generate a unique license code after 3 attempts.'
-      );
-    }
+    // فراخوانی سرویس ایزوله شده برای تولید لایسنس
+    const code = await generateUniqueLicense();
 
     await ctx.answerCbQuery('✅ لایسنس ۱ ساعته با موفقیت تولید شد!');
 
