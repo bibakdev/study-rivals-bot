@@ -7,7 +7,8 @@ import { startCommand } from '#modules/telegram-bot/commands/start/start.router'
 import { handleBotOnboardingText } from '#modules/telegram-bot/handlers/onboarding/onboarding.router';
 import { handleGroupTenantMessages } from '#modules/telegram-bot/handlers/tenant/tenant.router';
 import { handleGenerateLicense } from '#modules/telegram-bot/handlers/mother/generate-license.action';
-import { handleSelectTenant } from '#modules/telegram-bot/handlers/tenant/select-tenant.action'; // 👈 اضافه شد
+import { handleSelectTenant } from '#modules/telegram-bot/handlers/tenant/select-tenant.action';
+import { handleAddGroupRequest } from '#modules/telegram-bot/handlers/onboarding/add-group.action';
 
 export class BotService {
   private bot: Telegraf;
@@ -29,10 +30,13 @@ export class BotService {
     // ۲. اتصال اکشن دکمه شیشه‌ای تولید لایسنس (ویژه مادر)
     this.bot.action('action_generate_license', handleGenerateLicense);
 
-    // ۳. 👈 هندل کردن انتخاب گروه از طریق کیبورد شیشه‌ای با استفاده از ریجکس (Regex)
+    // ۳. هندل کردن انتخاب گروه از طریق کیبورد شیشه‌ای با استفاده از ریجکس (Regex)
     this.bot.action(/^select_tenant_(.+)$/, handleSelectTenant);
 
-    // ۴. مدیریت هوشمند رویدادهای متنی بر اساس مرزبندی محیط چت (تلگرام کور-لاجیک)
+    // ۴. هندل کردن اکشن اضافه کردن ربات به گروه (برای کاربران مهمان)
+    this.bot.action('action_add_to_group', handleAddGroupRequest);
+
+    // ۵. مدیریت هوشمند رویدادهای متنی بر اساس مرزبندی محیط چت (تلگرام کور-لاجیک)
     this.bot.on('text', async (ctx, next) => {
       const chatType = ctx.chat?.type;
 

@@ -4,6 +4,7 @@ import { Context, Markup } from 'telegraf';
 import { UserModel } from '#modules/auth/user.model';
 import { TenantMemberModel } from '#modules/tenant/tenant-member.model';
 import { getUserActiveTenants } from '#modules/telegram-bot/services/user-tenants.service';
+import { getStartKeyboard } from '#modules/telegram-bot/utils/keyboards.util';
 import { grantDashboardAccess } from './start.utils';
 
 export const handleStandardStart = async (
@@ -27,11 +28,12 @@ export const handleStandardStart = async (
       return;
     }
 
-    // کاربر عادی که در هیچ گروهی نیست (پیام Fallback)
+    // کاربر عادی که در هیچ گروهی نیست (ارسال کیبورد مهمان)
     await ctx.setChatMenuButton({ type: 'default' });
     await ctx.reply(
       `به سرزمین رقابت و چالش‌های مطالعاتی خوش آمدید! 🎯\n\n` +
-        `برای فعال‌سازی ربات، لطفاً **کد لایسنس ۱۶ رقمی** خود را ارسال کنید.`
+        `جهت مدیریت چالش‌های خود، ابتدا باید ربات را به یک گروه متصل کنید.`,
+      { reply_markup: getStartKeyboard('guest') }
     );
     return;
   }

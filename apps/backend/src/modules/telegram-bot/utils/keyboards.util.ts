@@ -11,6 +11,20 @@ export const getWebAppMenuButton = () => ({
 export const getStartKeyboard = (
   role: 'mother' | 'main_admin' | 'sub_admin' | 'user' | 'guest'
 ) => {
+  // هندل کردن وضعیت مهمان (بدون گروه)
+  if (role === 'guest') {
+    return {
+      inline_keyboard: [
+        [
+          {
+            text: '➕ اضافه کردن ربات به گروه خودم',
+            callback_data: 'action_add_to_group'
+          }
+        ]
+      ]
+    };
+  }
+
   const baseKeyboard = [
     [
       { text: '👤 پروفایل تلگرامی من', callback_data: 'action_profile' },
