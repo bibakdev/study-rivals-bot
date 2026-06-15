@@ -3,7 +3,7 @@
 import { Telegraf } from 'telegraf';
 import { env } from '#core/config/env';
 import { logger } from '#utils/logger';
-import { startCommand } from '#modules/telegram-bot/commands/start.command';
+import { startCommand } from '#modules/telegram-bot/commands/start/start.router';
 import { handleBotOnboardingText } from '#modules/telegram-bot/handlers/onboarding.handler';
 import { handleGroupTenantMessages } from '#modules/telegram-bot/handlers/tenant.handler';
 import { handleGenerateLicense } from '#modules/telegram-bot/handlers/mother.handler';
