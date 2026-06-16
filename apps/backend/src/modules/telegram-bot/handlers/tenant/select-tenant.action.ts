@@ -23,7 +23,6 @@ export const handleSelectTenant = async (
       return;
     }
 
-    // ۱. پیدا کردن نقش دقیق کاربر در این گروه خاص
     let persianRole = 'کاربر عادی';
     let systemRole = 'user';
     const user = await UserModel.findOne({ telegramId }).lean();
@@ -38,6 +37,15 @@ export const handleSelectTenant = async (
       }).lean();
 
       if (membership) {
+        if (membership.isSuspended) {
+          await ctx
+            .answerCbQuery('🚫 شما در این گروه تعلیق شده‌اید.', {
+              show_alert: true
+            })
+            .catch(() => {});
+          return; // کاربر معلق حتی دکمه ورود را نخواهد دید
+        }
+
         systemRole = membership.tenantRole;
         switch (membership.tenantRole) {
           case 'main_admin':
@@ -56,56 +64,59 @@ export const handleSelectTenant = async (
       }
     }
 
-    // ۲. اضافه کردن پارامتر به URL مینی‌اپ
     const miniAppUrl = new URL(env.MINI_APP_URL);
     miniAppUrl.searchParams.set('tenantId', tenantId);
     const finalUrl = miniAppUrl.toString();
 
-    // ۳. تغییر دکمه اصلی ربات برای این کاربر خاص
     await ctx.setChatMenuButton({
       type: 'web_app',
       text: 'Open',
       web_app: { url: finalUrl }
     });
 
-    // ۴. بستن حالت لودینگ دکمه شیشه‌ای
     await ctx.answerCbQuery('✅ گروه انتخاب شد!').catch(() => {});
 
-    // ۵. ساخت کیبورد شیشه‌ای به صورت داینامیک بر اساس نقش
     const inlineKeyboard = [];
 
-    // نمایش دکمه "اضافه کردن ادمین" و "عزل ادمین" فقط برای نقش‌های دارای صلاحیت
+    // اضافه شدن دکمه‌های تعلیق و رفع تعلیق به همراه ادمین‌ها
     if (systemRole === 'main_admin' || systemRole === 'mother') {
-      inlineKeyboard.push([
-        {
-          text: '➕ اضافه کردن ادمین',
-          callback_data: `action_add_admin_${tenantId}`
-        },
-        {
-          text: '➖ عزل ادمین',
-          callback_data: `action_remove_admin_${tenantId}`
-        }
-      ]);
+      inlineKeyboard.push(
+        [
+          {
+            text: '➕ اضافه کردن ادمین',
+            callback_data: `action_add_admin_${tenantId}`
+          },
+          {
+            text: '➖ عزل ادمین',
+            callback_data: `action_remove_admin_${tenantId}`
+          }
+        ],
+        [
+          {
+            text: '🚫 تعلیق کاربر',
+            callback_data: `action_suspend_user_${tenantId}`
+          },
+          {
+            text: '✅ رفع تعلیق',
+            callback_data: `action_unsuspend_user_${tenantId}`
+          }
+        ]
+      );
     }
 
-    // دکمه بازگشت همیشه در پایین قرار می‌گیرد
     inlineKeyboard.push([
       { text: '🔙 بازگشت به لیست گروه‌ها', callback_data: 'action_my_groups' }
     ]);
 
-    // ۶. ویرایش پیام و نمایش موفقیت همراه با نقش کاربر و کیبورد داینامیک
     await ctx
       .editMessageText(
-        `✅ **گروه با موفقیت انتخاب شد.**\n\n` +
-          `👤 **نقش شما در این گروه:** ${persianRole}\n\n` +
-          `جهت ورود به پنل، روی دکمه آبی‌رنگ **Open** در پایین صفحه کلیک کنید.`,
+        `✅ **گروه با موفقیت انتخاب شد.**\n\n👤 **نقش شما در این گروه:** ${persianRole}\n\nجهت ورود به پنل، روی دکمه آبی‌رنگ **Open** در پایین صفحه کلیک کنید.`,
         {
           parse_mode: 'Markdown',
           reply_markup: { inline_keyboard: inlineKeyboard }
         }
       )
       .catch(async () => {
-        // فال‌بک در صورتی که ویرایش پیام به هر دلیلی ممکن نبود
         await ctx.reply(
           `✅ **گروه با موفقیت انتخاب شد.**\n\n👤 **نقش شما:** ${persianRole}\n\nروی دکمه آبی‌رنگ **Open** کلیک کنید.`,
           {
@@ -116,14 +127,12 @@ export const handleSelectTenant = async (
       });
 
     logger.info(
-      `User ${telegramId} dynamically selected tenant ${tenantId} via inline keyboard. Role: ${persianRole}`
+      `User ${telegramId} selected tenant ${tenantId}. Role: ${persianRole}`
     );
   } catch (error) {
     logger.error('Error handling dynamic tenant selection:', error);
     await ctx
-      .answerCbQuery('⚠️ خطایی رخ داد. لطفا دوباره تلاش کنید.', {
-        show_alert: true
-      })
+      .answerCbQuery('⚠️ خطایی رخ داد.', { show_alert: true })
       .catch(() => {});
   }
 };

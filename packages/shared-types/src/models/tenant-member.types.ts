@@ -6,4 +6,5 @@ export interface TenantMember {
   tenantId: string;
   telegramId: number;
   tenantRole: TenantRole;
+  isSuspended: boolean;
 }

@@ -66,7 +66,7 @@ export const validateTenantAccess = async (
       return next();
     }
 
-    // ۲. بررسی عضویت اختصاصی کاربر عادی/ادمین‌های گروه در مستأجر
+    // ۲. بررسی عضویت اختصاصی کاربر در مستأجر
     const membership = await TenantMemberModel.findOne({
       telegramId,
       tenantId: new mongoose.Types.ObjectId(tenantId)
@@ -80,9 +80,18 @@ export const validateTenantAccess = async (
       );
     }
 
-    // ۳. تزریق شناسه گروه و نقشِ اختصاصیِ کاربر در این گروه به بدنه ریکوئست
+    // ⛔ ۳. گارد امنیتی: قطع دسترسی در صورت تعلیق کاربر
+    if (membership.isSuspended) {
+      throw new AppError(
+        'شما در این گروه تعلیق شده‌اید.',
+        403,
+        'USER_SUSPENDED'
+      );
+    }
+
+    // ۴. تزریق شناسه گروه و نقشِ اختصاصیِ کاربر در این گروه به بدنه ریکوئست
     req.tenantId = tenantId;
-    req.tenantRole = membership.tenantRole; // 'main_admin' | 'sub_admin' | 'user'
+    req.tenantRole = membership.tenantRole;
 
     next();
   } catch (error) {

@@ -9,7 +9,8 @@ export const TenantRoleSchema = z.enum(['main_admin', 'sub_admin', 'user']);
 export const TenantMemberSchema = z.object({
   tenantId: z.string().min(1, 'شناسه مستأجر (گروه) الزامی است.'),
   telegramId: z.number().int().positive('شناسه تلگرام نامعتبر است.'),
-  tenantRole: TenantRoleSchema
+  tenantRole: TenantRoleSchema,
+  isSuspended: z.boolean().default(false)
 });
 
 // استخراج تایپ DTO برای استفاده در سراسر پروژه
