@@ -1,6 +1,7 @@
 // apps/backend/src/modules/telegram-bot/bot.service.ts
 
 import { Telegraf } from 'telegraf';
+import rateLimit from 'telegraf-ratelimit'; // 👈 ۱. ایمپورت پکیج محدودکننده
 import { env } from '#core/config/env';
 import { logger } from '#utils/logger';
 import { startCommand } from '#modules/telegram-bot/commands/start/start.router';
@@ -14,7 +15,7 @@ import { handleManageGroupsRequest } from '#modules/telegram-bot/handlers/tenant
 import { handleBackToMain } from '#modules/telegram-bot/handlers/tenant/back-to-main.action';
 import { handleLeaveGroup } from '#modules/telegram-bot/handlers/tenant/leave-group.action';
 import { handleAddAdminRequest } from '#modules/telegram-bot/handlers/tenant/add-admin.action';
-import { handlePromoteSubAdmin } from '#modules/telegram-bot/handlers/tenant/promote-admin.action'; // 👈 ایمپورت جدید
+import { handlePromoteSubAdmin } from '#modules/telegram-bot/handlers/tenant/promote-admin.action';
 
 export class BotService {
   private bot: Telegraf;
@@ -30,6 +31,24 @@ export class BotService {
   }
 
   private initializeCommandsAndHandlers(): void {
+    // 👈 ۲. پیکربندی سپر موقت (Rate Limit)
+    const rateLimitConfig = {
+      window: 3000, // بازه زمانی: ۳ ثانیه (۳۰۰۰ میلی‌ثانیه)
+      limit: 2, // حداکثر درخواست مجاز در این بازه: ۲ عدد
+      onLimitExceeded: (ctx: any, next: () => Promise<void>) => {
+        // وقتی کاربر از حد مجاز عبور کرد، فقط یک لاگ می‌اندازیم و next() را صدا نمی‌زنیم.
+        // صدا نزدن next() باعث می‌شود ریکوئست همین‌جا کُشته (Drop) شود و به دیتابیس نرسد.
+        logger.warn(`Spam detected and dropped. Telegram ID: ${ctx.from?.id}`);
+      },
+      keyGenerator: (ctx: any) => {
+        // شناسه منحصر‌به‌فرد برای هر محدودیت، آیدی عددی تلگرام کاربر است
+        return ctx.from?.id?.toString() || 'unknown';
+      }
+    };
+
+    // 👈 ۳. تزریق به عنوان اولین لایه دفاعی (بالاتر از همه دستورات)
+    this.bot.use(rateLimit(rateLimitConfig));
+
     // ۱. ثبت دستور استارت عمومی
     this.bot.start(startCommand);
 
@@ -50,7 +69,7 @@ export class BotService {
     // ۶. هندل کردن لیست کاربران برای افزودن ادمین
     this.bot.action(/^action_add_admin_(.+)$/, handleAddAdminRequest);
 
-    // ۷. 👈 هندل کردن کلیک روی کاربر برای ارتقای نقش (ریجکس برای ۲ پارامتر: tenantId و telegramId)
+    // ۷. هندل کردن کلیک روی کاربر برای ارتقای نقش
     this.bot.action(
       /^promote_sub_([a-f\d]{24})_(\d+)$/i,
       handlePromoteSubAdmin
@@ -64,10 +83,8 @@ export class BotService {
       const chatType = ctx.chat?.type;
 
       if (chatType === 'private') {
-        // محیط پیوی: پردازش Onboarding و احراز هویت اولیه اکانت مادر
         await handleBotOnboardingText(ctx);
       } else if (chatType === 'group' || chatType === 'supergroup') {
-        // محیط گروه: پردازش فعال‌سازی لایسنس مستأجرین و اتصال اتمیک به تاپیک چالش
         await handleGroupTenantMessages(ctx);
       }
 

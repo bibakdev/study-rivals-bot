@@ -19,6 +19,7 @@
     "mongoose": "^8.3.4",
     "shared-types": "*",
     "telegraf": "^4.16.3",
+    "telegraf-ratelimit": "^2.0.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
