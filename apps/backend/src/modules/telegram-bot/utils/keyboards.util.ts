@@ -8,43 +8,37 @@ export const getWebAppMenuButton = () => ({
   web_app: { url: env.MINI_APP_URL }
 });
 
-export const getStartKeyboard = (
-  role: 'mother' | 'main_admin' | 'sub_admin' | 'user' | 'guest'
-) => {
-  // هندل کردن وضعیت مهمان (بدون گروه)
-  if (role === 'guest') {
-    return {
-      inline_keyboard: [
-        [
-          {
-            text: '➕ اضافه کردن ربات به گروه خودم',
-            callback_data: 'action_add_to_group'
-          }
-        ]
-      ]
-    };
-  }
-
+// ۱. کیبورد اصلی ربات (فقط دکمه مدیریت گروه‌ها)
+export const getStartKeyboard = (role: 'mother' | 'user' | string) => {
   const baseKeyboard = [
-    [
-      { text: '👤 پروفایل تلگرامی من', callback_data: 'action_profile' },
-      { text: '❓ راهنمای چالش‌ها', callback_data: 'action_help' }
-    ]
+    [{ text: '⚙️ مدیریت گروه‌ها', callback_data: 'action_manage_groups' }]
   ];
 
+  // دکمه اختصاصی اکانت مادر همچنان حفظ می‌شود
   if (role === 'mother') {
-    return {
-      inline_keyboard: [
-        ...baseKeyboard,
-        [
-          {
-            text: '🔑 تولید لایسنس ۱ ساعته',
-            callback_data: 'action_generate_license'
-          }
-        ]
-      ]
-    };
+    baseKeyboard.push([
+      {
+        text: '🔑 تولید لایسنس ۱ ساعته',
+        callback_data: 'action_generate_license'
+      }
+    ]);
   }
 
   return { inline_keyboard: baseKeyboard };
+};
+
+// ۲. کیبورد زیرمنوی مدیریت گروه‌ها
+export const getManageGroupsSubMenu = () => {
+  return {
+    inline_keyboard: [
+      [
+        {
+          text: '➕ اضافه کردن ربات به گروه',
+          callback_data: 'action_add_to_group'
+        }
+      ],
+      [{ text: '👥 گروه‌های من', callback_data: 'action_my_groups' }],
+      [{ text: '🔙 بازگشت به منوی اصلی', callback_data: 'action_back_to_main' }]
+    ]
+  };
 };

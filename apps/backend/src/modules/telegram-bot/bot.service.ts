@@ -9,6 +9,10 @@ import { handleGroupTenantMessages } from '#modules/telegram-bot/handlers/tenant
 import { handleGenerateLicense } from '#modules/telegram-bot/handlers/mother/generate-license.action';
 import { handleSelectTenant } from '#modules/telegram-bot/handlers/tenant/select-tenant.action';
 import { handleAddGroupRequest } from '#modules/telegram-bot/handlers/onboarding/add-group.action';
+import { handleMyGroupsRequest } from '#modules/telegram-bot/handlers/tenant/my-groups.action';
+import { handleManageGroupsRequest } from '#modules/telegram-bot/handlers/tenant/manage-groups.action';
+import { handleBackToMain } from '#modules/telegram-bot/handlers/tenant/back-to-main.action';
+import { handleLeaveGroup } from '#modules/telegram-bot/handlers/tenant/leave-group.action'; // 👈 ایمپورت جدید
 
 export class BotService {
   private bot: Telegraf;
@@ -33,10 +37,18 @@ export class BotService {
     // ۳. هندل کردن انتخاب گروه از طریق کیبورد شیشه‌ای با استفاده از ریجکس (Regex)
     this.bot.action(/^select_tenant_(.+)$/, handleSelectTenant);
 
-    // ۴. هندل کردن اکشن اضافه کردن ربات به گروه (برای کاربران مهمان)
+    // ۴. هندل کردن دکمه‌های پنل کاربری و مدیریت گروه‌ها
+    this.bot.action('action_manage_groups', handleManageGroupsRequest);
     this.bot.action('action_add_to_group', handleAddGroupRequest);
+    this.bot.action('action_my_groups', handleMyGroupsRequest);
 
-    // ۵. مدیریت هوشمند رویدادهای متنی بر اساس مرزبندی محیط چت (تلگرام کور-لاجیک)
+    // ۵. هندل کردن دکمه بازگشت به منوی اصلی
+    this.bot.action('action_back_to_main', handleBackToMain);
+
+    // ۶. 👈 گوش دادن به رویداد خروج کاربر از گروه تلگرامی برای حذف دسترسی
+    this.bot.on('left_chat_member', handleLeaveGroup);
+
+    // ۷. مدیریت هوشمند رویدادهای متنی بر اساس مرزبندی محیط چت
     this.bot.on('text', async (ctx, next) => {
       const chatType = ctx.chat?.type;
 

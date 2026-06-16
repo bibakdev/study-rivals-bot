@@ -1,52 +1,109 @@
 // apps/backend/src/modules/telegram-bot/handlers/tenant/select-tenant.action.ts
 
 import { Context } from 'telegraf';
+import mongoose from 'mongoose';
 import { env } from '#core/config/env';
+import { UserModel } from '#modules/auth/user.model';
+import { TenantMemberModel } from '#modules/tenant/tenant-member.model';
 import { logger } from '#utils/logger';
 
-// برای اینکه تایپ اسکریپت `match` را از ریجکس اکشن دریافت کند، از یک اینترفیس تقاطعی استفاده می‌کنیم
 export const handleSelectTenant = async (
   ctx: Context & { match: RegExpExecArray }
 ): Promise<void> => {
   try {
-    // استخراج tenantId که در standard.action.ts با الگوی select_tenant_xxx ارسال شده بود
     const tenantId = ctx.match[1];
+    const telegramId = ctx.from?.id;
 
-    if (!tenantId) {
-      await ctx.answerCbQuery('❌ خطایی در تشخیص شناسه گروه رخ داد.', {
-        show_alert: true
-      });
+    if (!tenantId || !telegramId) {
+      await ctx
+        .answerCbQuery('❌ خطایی در تشخیص گروه یا کاربر رخ داد.', {
+          show_alert: true
+        })
+        .catch(() => {});
       return;
     }
 
-    // اضافه کردن پارامتر به URL با روش استاندارد و ایمن
+    // ۱. پیدا کردن نقش دقیق کاربر در این گروه خاص
+    let persianRole = 'کاربر عادی';
+    const user = await UserModel.findOne({ telegramId }).lean();
+
+    if (user?.role === 'mother') {
+      persianRole = '👑 مالک کل پلتفرم (اکانت مادر)';
+    } else {
+      const membership = await TenantMemberModel.findOne({
+        telegramId,
+        tenantId: new mongoose.Types.ObjectId(tenantId)
+      }).lean();
+
+      if (membership) {
+        switch (membership.tenantRole) {
+          case 'main_admin':
+            persianRole = 'مدیر اصلی (Main Admin)';
+            break;
+          case 'sub_admin':
+            persianRole = 'مدیر فرعی (Sub Admin)';
+            break;
+          case 'user':
+            persianRole = 'کاربر عادی';
+            break;
+        }
+      } else {
+        persianRole = 'بدون دسترسی (نامشخص)';
+      }
+    }
+
+    // ۲. اضافه کردن پارامتر به URL مینی‌اپ
     const miniAppUrl = new URL(env.MINI_APP_URL);
     miniAppUrl.searchParams.set('tenantId', tenantId);
     const finalUrl = miniAppUrl.toString();
 
-    // تغییر دکمه اصلی ربات برای این کاربر خاص
+    // ۳. تغییر دکمه اصلی ربات برای این کاربر خاص
     await ctx.setChatMenuButton({
       type: 'web_app',
       text: 'Open',
       web_app: { url: finalUrl }
     });
 
-    // بستن حالت لودینگ دکمه شیشه‌ای
-    await ctx.answerCbQuery('✅ گروه تنظیم شد!');
+    // ۴. بستن حالت لودینگ دکمه شیشه‌ای
+    await ctx.answerCbQuery('✅ گروه انتخاب شد!').catch(() => {});
 
-    // ارسال پیام نهایی درخواست ورود
-    await ctx.reply(
-      '✅ گروه انتخاب شد. حالا روی دکمه آبی‌رنگ **Open** کلیک کنید.',
-      { parse_mode: 'Markdown' }
-    );
+    // ۵. ویرایش پیام و نمایش موفقیت همراه با نقش کاربر
+    await ctx
+      .editMessageText(
+        `✅ **گروه با موفقیت انتخاب شد.**\n\n` +
+          `👤 **نقش شما در این گروه:** ${persianRole}\n\n` +
+          `جهت ورود به پنل، روی دکمه آبی‌رنگ **Open** در پایین صفحه کلیک کنید.`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: '🔙 بازگشت به لیست گروه‌ها',
+                  callback_data: 'action_my_groups'
+                }
+              ]
+            ]
+          }
+        }
+      )
+      .catch(async () => {
+        // فال‌بک در صورتی که ویرایش پیام به هر دلیلی ممکن نبود
+        await ctx.reply(
+          `✅ **گروه با موفقیت انتخاب شد.**\n\n👤 **نقش شما:** ${persianRole}\n\nروی دکمه آبی‌رنگ **Open** کلیک کنید.`,
+          { parse_mode: 'Markdown' }
+        );
+      });
 
     logger.info(
-      `User ${ctx.from?.id} dynamically selected tenant ${tenantId} via inline keyboard.`
+      `User ${telegramId} dynamically selected tenant ${tenantId} via inline keyboard. Role: ${persianRole}`
     );
   } catch (error) {
     logger.error('Error handling dynamic tenant selection:', error);
-    await ctx.answerCbQuery('⚠️ خطایی رخ داد. لطفا دوباره تلاش کنید.', {
-      show_alert: true
-    });
+    await ctx
+      .answerCbQuery('⚠️ خطایی رخ داد. لطفا دوباره تلاش کنید.', {
+        show_alert: true
+      })
+      .catch(() => {});
   }
 };
