@@ -30,7 +30,7 @@ export const handleLicenseReservation = async (
     return true;
   }
 
-  // ۳. رزرو اتمیک گروه به نام کاربر
+  // ۳. رزرو اتمیک گروه به نام کاربر و بی‌اثر کردن زمان انقضا با تغییر مقدار به null
   const reserved = await TenantModel.findOneAndUpdate(
     {
       _id: targetLicense._id,
@@ -38,7 +38,12 @@ export const handleLicenseReservation = async (
       mainAdminId: { $in: [null, telegramId] },
       $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }]
     },
-    { $set: { mainAdminId: telegramId } },
+    {
+      $set: {
+        mainAdminId: telegramId,
+        expiresAt: null // 💡 خنثی‌سازی لایو ایندکس شرطی TTL جهت جلوگیری از حذف خودکار سند توسط دیتابیس
+      }
+    },
     { new: true }
   );
 
@@ -58,15 +63,16 @@ export const handleLicenseReservation = async (
   // ۴. تخصیص نقش ادمین اصلی (main_admin) به کاربر در همین لحظه
   await promoteToAdmin(
     telegramId,
-    // استفاده از any موقت برای تطبیق تایپ Context با Context<Update> در Telegraf
+    // استفاده از any موقت برای تایید امضای متد با ساختار Telegraf
     ctx as any,
     reserved._id as mongoose.Types.ObjectId
   );
 
   // پاک کردن خطاهای قبلی کاربر (در صورت وجود)
   await ForbiddenUserModel.deleteOne({ telegramId });
+
   logger.info(
-    `Tenant claimed in PV and user promoted to main_admin. Admin: ${telegramId}, License: ${normalizedInput}`
+    `Tenant claimed in PV and expiration disabled (null). Admin: ${telegramId}, License: ${normalizedInput}`
   );
 
   await ctx.reply(
