@@ -74,12 +74,16 @@ export const handleSelectTenant = async (
     // ۵. ساخت کیبورد شیشه‌ای به صورت داینامیک بر اساس نقش
     const inlineKeyboard = [];
 
-    // نمایش دکمه "اضافه کردن ادمین" فقط برای نقش‌های دارای صلاحیت
+    // نمایش دکمه "اضافه کردن ادمین" و "عزل ادمین" فقط برای نقش‌های دارای صلاحیت
     if (systemRole === 'main_admin' || systemRole === 'mother') {
       inlineKeyboard.push([
         {
           text: '➕ اضافه کردن ادمین',
           callback_data: `action_add_admin_${tenantId}`
+        },
+        {
+          text: '➖ عزل ادمین',
+          callback_data: `action_remove_admin_${tenantId}`
         }
       ]);
     }
