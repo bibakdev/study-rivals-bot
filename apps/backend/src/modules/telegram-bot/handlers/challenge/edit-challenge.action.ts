@@ -29,11 +29,15 @@ export const handleEditChallengeRequest = async (
       return;
     }
 
-    if (challenge.status !== 'pending') {
+    // 👈 بررسی وضعیت چالش: حالا به pending و active هر دو اجازه ویرایش می‌دهد
+    if (challenge.status !== 'pending' && challenge.status !== 'active') {
       await ctx
-        .answerCbQuery('⚠️ فقط چالش‌های اجرا نشده قابل ویرایش هستند.', {
-          show_alert: true
-        })
+        .answerCbQuery(
+          '⚠️ فقط چالش‌های اجرا نشده یا در حال اجرا قابل ویرایش هستند.',
+          {
+            show_alert: true
+          }
+        )
         .catch(() => {});
       return;
     }

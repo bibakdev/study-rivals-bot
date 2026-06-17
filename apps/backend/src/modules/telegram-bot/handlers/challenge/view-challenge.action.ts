@@ -181,6 +181,13 @@ export const handleViewChallengeRequest = async (
       );
     } else if (challenge.status === 'active') {
       inlineKeyboard.push(
+        // 👈 دکمه ویرایش چالش به حالت Active اضافه شد
+        [
+          Markup.button.callback(
+            '✏️ ویرایش چالش',
+            `edit_challenge_${challengeId}`
+          )
+        ],
         [
           Markup.button.callback(
             '🗑 حذف چالش',
@@ -202,7 +209,6 @@ export const handleViewChallengeRequest = async (
             `view_logged_times_${challengeId}`
           )
         ],
-        // 👈 دکمه جدید اضافه شد
         [
           Markup.button.callback(
             '📅 رتبه‌بندی تایم‌های روزانه',

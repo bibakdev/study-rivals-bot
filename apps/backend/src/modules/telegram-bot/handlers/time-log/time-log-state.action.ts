@@ -204,7 +204,7 @@ export const handleTimeLogStateText = async (
         .catch(() => {});
 
       const dividerMsg = await ctx.telegram
-        .sendMessage(tenant.chatId, '➖➖➖➖➖➖➖➖➖➖', sendOptions)
+        .sendMessage(tenant.chatId, '➖➖➖➖➖➖➖➖➖', sendOptions)
         .catch(() => null);
 
       const leaderboardStr = await generateLeaderboardText(challenge._id);

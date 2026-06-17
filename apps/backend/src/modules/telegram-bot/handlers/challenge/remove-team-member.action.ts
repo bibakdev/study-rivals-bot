@@ -3,6 +3,7 @@
 import { Context, Markup } from 'telegraf';
 import { ChallengeModel } from '#modules/challenge/challenge.model';
 import { UserModel } from '#modules/auth/user.model';
+import { TimeLogModel } from '#modules/time-log/time-log.model'; // 👈 اضافه شد
 import { logger } from '#utils/logger';
 
 // نمایش لیست اعضای فعلی برای حذف
@@ -83,16 +84,24 @@ export const handleDoRemoveMember = async (
     const teamIndex = parseInt(ctx.match[2], 10);
     const targetTelegramId = parseInt(ctx.match[3], 10);
 
-    await ctx.answerCbQuery('✅ کاربر با موفقیت حذف شد').catch(() => {});
+    await ctx
+      .answerCbQuery('✅ کاربر و تایم‌های ثبت‌شده‌اش حذف شدند.')
+      .catch(() => {});
 
     const challenge = await ChallengeModel.findById(challengeId);
     if (!challenge || !challenge.teams[teamIndex]) return;
 
-    // حذف کاربر از آرایه members
+    // حذف کاربر از آرایه members چالش
     challenge.teams[teamIndex].members = challenge.teams[
       teamIndex
     ].members.filter((id) => id !== targetTelegramId);
     await challenge.save();
+
+    // 👈 پاک کردن تمام تایم‌های ثبت شده‌ی این کاربر برای این چالش
+    await TimeLogModel.deleteMany({
+      challengeId: challenge._id,
+      telegramId: targetTelegramId
+    });
 
     // فراخوانی مجدد منوی لیست اعضا برای آپدیت شدن صفحه
     await handleRemoveMemberMenu(ctx);
