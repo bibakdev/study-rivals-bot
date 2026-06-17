@@ -1,0 +1,213 @@
+// apps/backend/src/modules/telegram-bot/handlers/time-log/time-log-state.action.ts
+
+import { Context, Markup } from 'telegraf';
+import jalaali from 'jalaali-js';
+import { BotStateModel } from '#modules/telegram-bot/models/bot-state.model';
+import { TimeLogModel } from '#modules/time-log/time-log.model';
+import { ChallengeModel } from '#modules/challenge/challenge.model';
+import { TenantModel } from '#modules/tenant/tenant.model';
+import { UserModel } from '#modules/auth/user.model';
+import {
+  parseTimeStringToMinutes,
+  formatMinutesToTime
+} from '#modules/time-log/utils/time-parser.util';
+import { generateLeaderboardText } from '#modules/challenge/utils/leaderboard.util';
+import { logger } from '#utils/logger';
+
+const PERSIAN_MONTHS = [
+  'فروردین',
+  'اردیبهشت',
+  'خرداد',
+  'تیر',
+  'مرداد',
+  'شهریور',
+  'مهر',
+  'آبان',
+  'آذر',
+  'دی',
+  'بهمن',
+  'اسفند'
+];
+
+export const handleTimeLogStateText = async (
+  ctx: Context,
+  telegramId: number,
+  text: string
+): Promise<boolean> => {
+  try {
+    const state = await BotStateModel.findOne({
+      telegramId,
+      action: { $in: ['LOG_TIME_ADD', 'LOG_TIME_EDIT'] }
+    }).lean();
+
+    if (!state) return false;
+
+    const { challengeId, dayIndex } = state.payload as any;
+
+    // ۱. پارس کردن زمان ارسالی
+    const minutesToLog = parseTimeStringToMinutes(text);
+    if (minutesToLog === null || minutesToLog < 0) {
+      await ctx.reply(
+        '❌ فرمت زمان نامعتبر است. لطفاً عدد خالص (به ساعت) یا فرمت ساعت:دقیقه (مثل 1:30) وارد کنید.'
+      );
+      return true;
+    }
+
+    const challenge = await ChallengeModel.findById(challengeId);
+    if (!challenge) {
+      await BotStateModel.deleteOne({ telegramId });
+      return true;
+    }
+
+    // ۲. محاسبه تاریخ روز
+    const targetDateMs =
+      challenge.startDate.getTime() + dayIndex * 24 * 60 * 60 * 1000;
+    const targetDate = new Date(targetDateMs);
+    const { jd, jm } = jalaali.toJalaali(targetDate);
+    const dateLabel = `${jd} ${PERSIAN_MONTHS[jm - 1]}`;
+
+    // ۳. محاسبه جمع کل
+    let currentTotal = 0;
+    let oldMinutes = 0;
+
+    const existingLog = await TimeLogModel.findOne({
+      challengeId,
+      telegramId,
+      date: targetDate
+    });
+
+    if (existingLog) {
+      oldMinutes = existingLog.minutes;
+      if (state.action === 'LOG_TIME_ADD') {
+        currentTotal = existingLog.minutes + minutesToLog;
+      } else {
+        currentTotal = minutesToLog;
+      }
+    } else {
+      currentTotal = minutesToLog;
+    }
+
+    // گارد امنیتی ۲۰ ساعت در روز
+    const MAX_MINUTES_PER_DAY = 20 * 60;
+    if (currentTotal > MAX_MINUTES_PER_DAY) {
+      await ctx.reply(
+        `❌ **سقف مجاز رد شد!**\nشما نمی‌توانید در یک روز بیش از ۲۰ ساعت مطالعه ثبت کنید.\n\n⏱ ساعت محاسبه شده نهایی: **${formatMinutesToTime(currentTotal)}**\nلطفاً مقدار کمتری وارد کنید:`
+      );
+      return true;
+    }
+
+    // ۴. آپدیت در دیتابیس
+    if (existingLog) {
+      existingLog.minutes = currentTotal;
+      await existingLog.save();
+    } else {
+      await TimeLogModel.create({
+        tenantId: challenge.tenantId,
+        challengeId: challenge._id,
+        telegramId,
+        date: targetDate,
+        minutes: currentTotal
+      });
+    }
+
+    await BotStateModel.deleteOne({ telegramId });
+
+    // ۵. اطلاع‌رسانی ربات
+    const successMsg =
+      state.action === 'LOG_TIME_ADD'
+        ? `✅ زمان **${formatMinutesToTime(minutesToLog)}** با موفقیت به روز ${dayIndex + 1} اضافه شد.\n⏱ مجموع زمان امروز: **${formatMinutesToTime(currentTotal)}**`
+        : `✅ کل زمان روز ${dayIndex + 1} با موفقیت به **${formatMinutesToTime(currentTotal)}** تغییر یافت.`;
+
+    const inlineKeyboard = [
+      [
+        Markup.button.callback(
+          '➕ اضافه کردن ساعت',
+          `prompt_time_add_${challengeId}_${dayIndex}`
+        ),
+        Markup.button.callback(
+          '✏️ ویرایش کل ساعت',
+          `prompt_time_edit_${challengeId}_${dayIndex}`
+        )
+      ],
+      [
+        Markup.button.callback(
+          '🔙 بازگشت به لیست روزها',
+          `action_log_time_${challenge.tenantId}`
+        )
+      ]
+    ];
+
+    await ctx.reply(successMsg, {
+      parse_mode: 'Markdown',
+      reply_markup: { inline_keyboard: inlineKeyboard }
+    });
+
+    // ۶. ارسال به تاپیک گروه و بازسازی رتبه‌بندی
+    const tenant = await TenantModel.findById(challenge.tenantId).lean();
+    if (tenant && tenant.chatId) {
+      const user = await UserModel.findOne({ telegramId }).lean();
+      const userName = user
+        ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`
+        : 'کاربر';
+
+      const actionText =
+        state.action === 'LOG_TIME_ADD'
+          ? `➕ زمان اضافه شده: **${formatMinutesToTime(minutesToLog)}**`
+          : `✏️ تغییر زمان از ${formatMinutesToTime(oldMinutes)} به **${formatMinutesToTime(minutesToLog)}**`;
+
+      const notificationMsg =
+        `⏱ کاربر 👤 **${userName}** زمان خود را ثبت کرد.\n` +
+        `📅 مربوط به: روز ${dayIndex + 1} (${dateLabel})\n` +
+        `${actionText}\n` +
+        `📊 مجموع ساعت این روز: **${formatMinutesToTime(currentTotal)}**`;
+
+      const sendOptions: any = { parse_mode: 'Markdown' };
+      if (tenant.topicId) sendOptions.message_thread_id = tenant.topicId;
+
+      // الف) حذف جداکننده قبلی
+      if (challenge.lastDividerMessageId) {
+        await ctx.telegram
+          .deleteMessage(tenant.chatId, challenge.lastDividerMessageId)
+          .catch(() => {});
+      }
+
+      // ب) حذف رتبه‌بندی قبلی
+      if (challenge.lastLeaderboardMessageId) {
+        await ctx.telegram
+          .deleteMessage(tenant.chatId, challenge.lastLeaderboardMessageId)
+          .catch(() => {});
+      }
+
+      // ج) ارسال لاگ جدید
+      await ctx.telegram
+        .sendMessage(tenant.chatId, notificationMsg, sendOptions)
+        .catch(() => {});
+
+      // د) ارسال جداکننده جدید
+      const dividerMsg = await ctx.telegram
+        .sendMessage(tenant.chatId, '➖➖➖➖➖➖➖➖➖➖', sendOptions)
+        .catch(() => null);
+
+      // هـ) ارسال رتبه‌بندی جدید
+      const leaderboardStr = await generateLeaderboardText(challenge._id);
+      if (leaderboardStr) {
+        const sentLbMsg = await ctx.telegram
+          .sendMessage(tenant.chatId, leaderboardStr, sendOptions)
+          .catch(() => null);
+
+        // و) ذخیره آیدی پیام‌های جدید
+        if (dividerMsg) challenge.lastDividerMessageId = dividerMsg.message_id;
+        if (sentLbMsg)
+          challenge.lastLeaderboardMessageId = sentLbMsg.message_id;
+        await challenge.save();
+      }
+    }
+
+    return true;
+  } catch (error) {
+    logger.error('Error handling time log state:', error);
+    await ctx.reply('⚠️ خطایی رخ داد. فرآیند لغو شد.');
+    await BotStateModel.deleteOne({ telegramId }).catch(() => {});
+    return true;
+  }
+};

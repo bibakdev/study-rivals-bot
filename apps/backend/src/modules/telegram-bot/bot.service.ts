@@ -40,6 +40,11 @@ import { handleDeleteTargetRequest } from '#modules/telegram-bot/handlers/target
 import { handleEditTargetRequest } from '#modules/telegram-bot/handlers/target/edit-target.action';
 import { handleCancelTargetRequest } from '#modules/telegram-bot/handlers/target/cancel-target.action';
 
+// Time Log Handlers
+import { handleLogTimeMenuRequest } from '#modules/telegram-bot/handlers/time-log/log-time-menu.action';
+import { handleSelectDayAction } from '#modules/telegram-bot/handlers/time-log/select-day.action';
+import { handlePromptTimeAction } from '#modules/telegram-bot/handlers/time-log/prompt-time.action';
+
 // Challenge Handlers
 import { handleChallengesMenu } from '#modules/telegram-bot/handlers/challenge/challenges-menu.action';
 import { handleGroupChallengeMenu } from '#modules/telegram-bot/handlers/challenge/group-challenge-menu.action';
@@ -65,11 +70,13 @@ import {
 } from '#modules/telegram-bot/handlers/challenge/add-team-member.action';
 import { handleSendTeamsToGroupRequest } from '#modules/telegram-bot/handlers/challenge/send-teams.action';
 
-// 👈 اکشن‌های مربوط به چالش در حال اجرا و ثبت زمان
-import { handleEndChallengeRequest } from '#modules/telegram-bot/handlers/challenge/end-challenge.action';
+// 👈 اکشن‌های چالش در حال اجرا و تاییدیه جدید جایگزین شد
+import {
+  handleEndChallengePrompt,
+  handleDoEndChallenge
+} from '#modules/telegram-bot/handlers/challenge/end-challenge.action';
 import { handleSendLeaderboardRequest } from '#modules/telegram-bot/handlers/challenge/send-leaderboard.action';
 import { handleViewLoggedTimesRequest } from '#modules/telegram-bot/handlers/challenge/view-logged-times.action';
-import { handleLogTimeMenuRequest } from '#modules/telegram-bot/handlers/time-log/log-time-menu.action';
 
 export class BotService {
   private bot: Telegraf;
@@ -128,10 +135,18 @@ export class BotService {
       handleCancelTargetRequest
     );
 
-    // 👈 اکشن‌های مربوط به منوی ثبت ساعت
+    // اکشن‌های مربوط به منوی ثبت ساعت
     this.bot.action(
       /^action_log_time_([a-f\d]{24})$/i,
       handleLogTimeMenuRequest
+    );
+    this.bot.action(
+      /^action_log_time_day_([a-f\d]{24})_(\d+)$/i,
+      handleSelectDayAction
+    );
+    this.bot.action(
+      /^prompt_time_(add|edit)_([a-f\d]{24})_(\d+)$/i,
+      handlePromptTimeAction
     );
 
     // اکشن‌های مربوط به منوی چالش‌ها
@@ -167,10 +182,11 @@ export class BotService {
       handleSendTeamsToGroupRequest
     );
 
-    // اکشن‌های چالش در حال اجرا
+    // 👈 اکشن‌های چالش در حال اجرا (ویرایش شده برای تاییدیه خاتمه)
+    this.bot.action(/^end_challenge_([a-f\d]{24})$/i, handleEndChallengePrompt);
     this.bot.action(
-      /^end_challenge_([a-f\d]{24})$/i,
-      handleEndChallengeRequest
+      /^confirm_end_challenge_([a-f\d]{24})$/i,
+      handleDoEndChallenge
     );
     this.bot.action(
       /^send_leaderboard_([a-f\d]{24})$/i,

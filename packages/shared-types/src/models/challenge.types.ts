@@ -13,7 +13,9 @@ export interface Challenge {
   endDate: Date;
   durationDays: number;
   teams: ChallengeTeam[];
-  status: 'pending' | 'active' | 'completed'; // 👈 اضافه شدن وضعیت pending
+  status: 'pending' | 'active' | 'completed';
+  lastLeaderboardMessageId?: number; // 👈 ذخیره آیدی آخرین پیام رتبه‌بندی
+  lastDividerMessageId?: number; // 👈 ذخیره آیدی پیام جداکننده
   createdAt: Date;
   updatedAt: Date;
 }

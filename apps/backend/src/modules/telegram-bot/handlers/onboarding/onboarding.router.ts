@@ -9,7 +9,8 @@ import { handleMotherAuth } from './mother-auth.action';
 import { handleLicenseReservation } from './license-bind.action';
 import { handleFailedAttempt } from './attempt-limit.action';
 import { handleSaveTargetText } from '../target/save-target.action';
-import { handleChallengeStateText } from '../challenge/challenge-state.action'; // 👈 اضافه شد
+import { handleChallengeStateText } from '../challenge/challenge-state.action';
+import { handleTimeLogStateText } from '../time-log/time-log-state.action'; // 👈 اضافه شد
 
 export const handleBotOnboardingText = async (ctx: Context): Promise<void> => {
   if (!ctx.has(message('text')) || ctx.chat?.type !== 'private') return;
@@ -31,7 +32,7 @@ export const handleBotOnboardingText = async (ctx: Context): Promise<void> => {
       return;
     }
 
-    // 👈 ۱. بررسی وضعیت تارگت
+    // ۱. بررسی وضعیت تارگت
     const isTargetHandled = await handleSaveTargetText(
       ctx,
       telegramId,
@@ -39,13 +40,21 @@ export const handleBotOnboardingText = async (ctx: Context): Promise<void> => {
     );
     if (isTargetHandled) return;
 
-    // 👈 ۲. بررسی وضعیت ساخت چالش گروهی (زنجیره Wizard)
+    // ۲. بررسی وضعیت ساخت/ویرایش چالش
     const isChallengeHandled = await handleChallengeStateText(
       ctx,
       telegramId,
       rawText
     );
     if (isChallengeHandled) return;
+
+    // 👈 ۳. بررسی وضعیت ثبت ساعت مطالعه
+    const isTimeLogHandled = await handleTimeLogStateText(
+      ctx,
+      telegramId,
+      rawText
+    );
+    if (isTimeLogHandled) return;
 
     const normalizedInput = rawText.replace(/[-\s]/g, '').toUpperCase();
     const normalizedMotherCode = env.MOTHER_SECRET_CODE.replace(
@@ -71,7 +80,7 @@ export const handleBotOnboardingText = async (ctx: Context): Promise<void> => {
       if (isHandled) return;
     }
 
-    // --- مدیریت خطای رمز (Attempts) ---
+    // --- مدیریت خطای رمز ---
     if (rawText.length >= 6) {
       await handleFailedAttempt(ctx, telegramId);
     }

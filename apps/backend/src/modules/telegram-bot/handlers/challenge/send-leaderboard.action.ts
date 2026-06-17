@@ -3,15 +3,8 @@
 import { Context } from 'telegraf';
 import { ChallengeModel } from '#modules/challenge/challenge.model';
 import { TenantModel } from '#modules/tenant/tenant.model';
-import { TimeLogModel } from '#modules/time-log/time-log.model';
-import { UserModel } from '#modules/auth/user.model';
+import { generateLeaderboardText } from '#modules/challenge/utils/leaderboard.util';
 import { logger } from '#utils/logger';
-
-const formatMinutesToTime = (minutes: number): string => {
-  const hrs = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return `${hrs}:${mins.toString().padStart(2, '0')}`;
-};
 
 export const handleSendLeaderboardRequest = async (
   ctx: Context & { match: RegExpExecArray }
@@ -19,7 +12,7 @@ export const handleSendLeaderboardRequest = async (
   try {
     const challengeId = ctx.match[1];
 
-    const challenge = await ChallengeModel.findById(challengeId).lean();
+    const challenge = await ChallengeModel.findById(challengeId);
     if (!challenge) return;
 
     const tenant = await TenantModel.findById(challenge.tenantId).lean();
@@ -32,52 +25,43 @@ export const handleSendLeaderboardRequest = async (
       return;
     }
 
-    const timeLogs = await TimeLogModel.find({
-      challengeId: challenge._id
-    }).lean();
+    const leaderboardMessage = await generateLeaderboardText(challengeId);
 
-    const allMemberIds = challenge.teams.flatMap((t) => t.members);
-    const usersInfo = await UserModel.find({
-      telegramId: { $in: allMemberIds }
-    }).lean();
-
-    let message = `🏆 **رتبه‌بندی چالش در حال اجرا**\n\n`;
-
-    const teamScores = challenge.teams.map((team) => {
-      let totalMinutes = 0;
-      const memberScores = team.members.map((memberId) => {
-        const userLogs = timeLogs.filter((log) => log.telegramId === memberId);
-        const userTotal = userLogs.reduce((sum, log) => sum + log.minutes, 0);
-        totalMinutes += userTotal;
-        const user = usersInfo.find((u) => u.telegramId === memberId);
-        const name = user
-          ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`
-          : 'کاربر';
-        return { name, minutes: userTotal };
-      });
-      return { name: team.name, totalMinutes, memberScores };
-    });
-
-    teamScores.sort((a, b) => b.totalMinutes - a.totalMinutes);
-
-    teamScores.forEach((team, index) => {
-      const medal =
-        index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '🔹';
-      message += `${medal} **${team.name}** - ${formatMinutesToTime(team.totalMinutes)}\n`;
-      team.memberScores
-        .sort((a, b) => b.minutes - a.minutes)
-        .forEach((member) => {
-          message += `   👤 ${member.name}: ${formatMinutesToTime(member.minutes)}\n`;
-        });
-      message += '\n';
-    });
-
-    const sendOptions: any = { parse_mode: 'Markdown' };
-    if (tenant.topicId) {
-      sendOptions.message_thread_id = tenant.topicId;
+    if (!leaderboardMessage) {
+      await ctx
+        .answerCbQuery('❌ خطایی در تولید رتبه‌بندی رخ داد.')
+        .catch(() => {});
+      return;
     }
 
-    await ctx.telegram.sendMessage(tenant.chatId, message, sendOptions);
+    const sendOptions: any = { parse_mode: 'Markdown' };
+    if (tenant.topicId) sendOptions.message_thread_id = tenant.topicId;
+
+    // حذف جداکننده و لیدربرد قبلی
+    if (challenge.lastDividerMessageId) {
+      await ctx.telegram
+        .deleteMessage(tenant.chatId, challenge.lastDividerMessageId)
+        .catch(() => {});
+    }
+    if (challenge.lastLeaderboardMessageId) {
+      await ctx.telegram
+        .deleteMessage(tenant.chatId, challenge.lastLeaderboardMessageId)
+        .catch(() => {});
+    }
+
+    // ارسال پیام‌های جدید و مجزا
+    const dividerMsg = await ctx.telegram
+      .sendMessage(tenant.chatId, '➖➖➖➖➖➖➖➖➖➖', sendOptions)
+      .catch(() => null);
+    const sentLbMsg = await ctx.telegram
+      .sendMessage(tenant.chatId, leaderboardMessage, sendOptions)
+      .catch(() => null);
+
+    // ذخیره آیدی پیام‌ها در دیتابیس
+    if (dividerMsg) challenge.lastDividerMessageId = dividerMsg.message_id;
+    if (sentLbMsg) challenge.lastLeaderboardMessageId = sentLbMsg.message_id;
+    await challenge.save();
+
     await ctx
       .answerCbQuery('✅ رتبه‌بندی با موفقیت در گروه ارسال شد.', {
         show_alert: true

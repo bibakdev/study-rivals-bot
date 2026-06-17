@@ -11,7 +11,9 @@ export interface IChallengeDocument extends Document {
   endDate: Date;
   durationDays: number;
   teams: ChallengeTeam[];
-  status: 'pending' | 'active' | 'completed'; // 👈 اضافه شدن وضعیت pending
+  status: 'pending' | 'active' | 'completed';
+  lastLeaderboardMessageId?: number;
+  lastDividerMessageId?: number; // 👈 فیلد جدید اضافه شد
   createdAt: Date;
   updatedAt: Date;
 }
@@ -35,12 +37,13 @@ const challengeSchema = new Schema<IChallengeDocument>(
         members: [{ type: Number, required: true }] // Telegram IDs
       }
     ],
-    // 👈 اضافه شدن pending و تغییر مقدار پیش‌فرض در دیتابیس
     status: {
       type: String,
       enum: ['pending', 'active', 'completed'],
       default: 'pending'
-    }
+    },
+    lastLeaderboardMessageId: { type: Number, default: null },
+    lastDividerMessageId: { type: Number, default: null } // 👈 مقدار پیش‌فرض
   },
   { timestamps: true, versionKey: false }
 );

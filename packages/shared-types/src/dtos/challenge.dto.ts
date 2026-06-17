@@ -15,8 +15,9 @@ export const ChallengeSchema = z.object({
   endDate: z.date(),
   durationDays: z.number(),
   teams: z.array(ChallengeTeamSchema),
-  // 👈 اضافه شدن pending و تغییر مقدار پیش‌فرض
-  status: z.enum(['pending', 'active', 'completed']).default('pending')
+  status: z.enum(['pending', 'active', 'completed']).default('pending'),
+  lastLeaderboardMessageId: z.number().optional(),
+  lastDividerMessageId: z.number().optional() // 👈 فیلد جدید اضافه شد
 });
 
 export type ChallengeDto = z.infer<typeof ChallengeSchema>;

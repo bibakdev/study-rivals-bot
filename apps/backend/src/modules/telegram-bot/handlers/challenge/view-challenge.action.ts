@@ -4,6 +4,7 @@ import { Context, Markup } from 'telegraf';
 import { ChallengeModel } from '#modules/challenge/challenge.model';
 import { UserModel } from '#modules/auth/user.model';
 import { TimeLogModel } from '#modules/time-log/time-log.model';
+import { formatMinutesToTime } from '#modules/time-log/utils/time-parser.util';
 import { logger } from '#utils/logger';
 
 export const handleViewChallengeRequest = async (
@@ -35,9 +36,32 @@ export const handleViewChallengeRequest = async (
     }).lean();
 
     let extraInfo = '';
-    let logsMap = new Map<number, number>();
+    let logsMap = new Map<
+      number,
+      { daysLogged: number; totalMinutes: number }
+    >();
 
-    // 👈 اضافه شدن اطلاعات مختص چالش‌های در حال اجرا (Active)
+    // 👈 استخراج دیتای لاگ‌ها هم برای چالش‌های در حال اجرا و هم تکمیل شده
+    if (challenge.status === 'active' || challenge.status === 'completed') {
+      const timeLogs = await TimeLogModel.aggregate([
+        { $match: { challengeId: challenge._id } },
+        {
+          $group: {
+            _id: '$telegramId',
+            daysLogged: { $sum: 1 },
+            totalMinutes: { $sum: '$minutes' }
+          }
+        }
+      ]);
+
+      timeLogs.forEach((log) => {
+        logsMap.set(log._id, {
+          daysLogged: log.daysLogged,
+          totalMinutes: log.totalMinutes
+        });
+      });
+    }
+
     if (challenge.status === 'active') {
       const now = Date.now();
       const start = challenge.startDate.getTime();
@@ -45,42 +69,91 @@ export const handleViewChallengeRequest = async (
         1,
         Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1
       );
-
       extraInfo = `🗓 **روزهای سپری شده:** ${daysPassed} روز از ${challenge.durationDays} روز\n`;
-
-      const timeLogs = await TimeLogModel.aggregate([
-        { $match: { challengeId: challenge._id } },
-        { $group: { _id: '$telegramId', daysLogged: { $sum: 1 } } }
-      ]);
-
-      timeLogs.forEach((log) => logsMap.set(log._id, log.daysLogged));
     }
 
-    let teamsInfoText = '\n📊 **تیم‌ها و نفرات:**\n\n';
-    if (challenge.teams.length === 0) {
-      teamsInfoText += 'هیچ تیمی ثبت نشده است.\n';
-    } else {
-      challenge.teams.forEach((team) => {
-        teamsInfoText += `🔹 **${team.name}**\n`;
+    let teamsInfoText = '';
+
+    // 👈 لاجیک اختصاصی وضعیت تکمیل شده (نمایش آمار نهایی)
+    if (challenge.status === 'completed') {
+      // محاسبه مجموع زمان هر تیم
+      const teamStats = challenge.teams.map((team) => {
+        const teamTotal = team.members.reduce((sum, memberId) => {
+          return sum + (logsMap.get(memberId)?.totalMinutes || 0);
+        }, 0);
+        return { ...team, teamTotal };
+      });
+
+      // مرتب‌سازی تیم‌ها از بیشترین ساعت به کمترین جهت یافتن برنده
+      teamStats.sort((a, b) => b.teamTotal - a.teamTotal);
+
+      const winnerTeam =
+        teamStats.length > 0 && teamStats[0].teamTotal > 0
+          ? teamStats[0]
+          : null;
+
+      teamsInfoText = '\n🏆 **نتایج نهایی چالش:**\n\n';
+      if (winnerTeam) {
+        teamsInfoText += `🎖 **تیم برنده:** ${winnerTeam.name} با مجموع ${formatMinutesToTime(winnerTeam.teamTotal)}\n\n`;
+      } else {
+        teamsInfoText += `🎖 **تیم برنده:** نامشخص (تایمی در طول چالش ثبت نشده است)\n\n`;
+      }
+
+      teamStats.forEach((team) => {
+        teamsInfoText += `🔹 **${team.name}** (مجموع: ${formatMinutesToTime(team.teamTotal)})\n`;
         if (team.members.length === 0) {
           teamsInfoText += `  بدون عضو\n`;
         } else {
-          team.members.forEach((memberId) => {
-            const user = usersInfo.find((u) => u.telegramId === memberId);
-            const name = user
-              ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`
-              : 'کاربر';
+          // مرتب‌سازی اعضای داخل تیم بر اساس ساعت ثبت شده
+          const membersWithStats = team.members
+            .map((memberId) => {
+              const user = usersInfo.find((u) => u.telegramId === memberId);
+              const name = user
+                ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`
+                : 'کاربر';
+              const stats = logsMap.get(memberId) || {
+                daysLogged: 0,
+                totalMinutes: 0
+              };
+              return { name, ...stats };
+            })
+            .sort((a, b) => b.totalMinutes - a.totalMinutes);
 
-            if (challenge.status === 'active') {
-              const daysLogged = logsMap.get(memberId) || 0;
-              teamsInfoText += `  👤 ${name} - (تایم ثبت شده: ${daysLogged} روز)\n`;
-            } else {
-              teamsInfoText += `  👤 ${name}\n`;
-            }
+          membersWithStats.forEach((member) => {
+            teamsInfoText += `  👤 ${member.name}: ${formatMinutesToTime(member.totalMinutes)} (در ${member.daysLogged} روز)\n`;
           });
         }
         teamsInfoText += '\n';
       });
+    }
+    // لاجیک حالت‌های دیگر (اجرا نشده و در حال اجرا)
+    else {
+      teamsInfoText = '\n📊 **تیم‌ها و نفرات:**\n\n';
+      if (challenge.teams.length === 0) {
+        teamsInfoText += 'هیچ تیمی ثبت نشده است.\n';
+      } else {
+        challenge.teams.forEach((team) => {
+          teamsInfoText += `🔹 **${team.name}**\n`;
+          if (team.members.length === 0) {
+            teamsInfoText += `  بدون عضو\n`;
+          } else {
+            team.members.forEach((memberId) => {
+              const user = usersInfo.find((u) => u.telegramId === memberId);
+              const name = user
+                ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`
+                : 'کاربر';
+
+              if (challenge.status === 'active') {
+                const daysLogged = logsMap.get(memberId)?.daysLogged || 0;
+                teamsInfoText += `  👤 ${name} - (تایم ثبت شده: ${daysLogged} روز)\n`;
+              } else {
+                teamsInfoText += `  👤 ${name}\n`;
+              }
+            });
+          }
+          teamsInfoText += '\n';
+        });
+      }
     }
 
     const tenantId = challenge.tenantId.toString();
@@ -138,6 +211,11 @@ export const handleViewChallengeRequest = async (
           )
         ]
       );
+    } else if (challenge.status === 'completed') {
+      // در حالت تکمیل شده، فقط قابلیت حذف چالش باقی می‌ماند
+      inlineKeyboard.push([
+        Markup.button.callback('🗑 حذف چالش', `delete_challenge_${challengeId}`)
+      ]);
     }
 
     inlineKeyboard.push([
@@ -157,7 +235,7 @@ export const handleViewChallengeRequest = async (
     const message =
       `🏆 **جزئیات چالش**\n\n` +
       `📅 **تاریخ شروع:** ${challenge.startDateText}\n` +
-      `⏳ **مدت زمان:** ${challenge.durationDays} روز\n` +
+      `⏳ **مدت زمان کل:** ${challenge.durationDays} روز\n` +
       `وضعیت: **${statusPersian}**\n` +
       extraInfo +
       teamsInfoText +

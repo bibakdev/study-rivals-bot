@@ -2,14 +2,73 @@
 
 import { Context, Markup } from 'telegraf';
 import { ChallengeModel } from '#modules/challenge/challenge.model';
+import { TenantModel } from '#modules/tenant/tenant.model';
+import { UserModel } from '#modules/auth/user.model';
+import { TimeLogModel } from '#modules/time-log/time-log.model';
+import { formatMinutesToTime } from '#modules/time-log/utils/time-parser.util';
 import { logger } from '#utils/logger';
 
-export const handleEndChallengeRequest = async (
+// ۱. هندلر نمایش پیام تاییدیه (پرسش از ادمین)
+export const handleEndChallengePrompt = async (
+  ctx: Context & { match: RegExpExecArray }
+): Promise<void> => {
+  try {
+    const challengeId = ctx.match[1];
+    await ctx.answerCbQuery().catch(() => {});
+
+    const challenge = await ChallengeModel.findById(challengeId).lean();
+    if (!challenge) {
+      await ctx.editMessageText('❌ چالش یافت نشد.').catch(() => {});
+      return;
+    }
+
+    if (challenge.status !== 'active') {
+      await ctx
+        .answerCbQuery('⚠️ این چالش در حال اجرا نیست.', { show_alert: true })
+        .catch(() => {});
+      return;
+    }
+
+    await ctx
+      .editMessageText(
+        '⚠️ **تاییدیه خاتمه چالش**\n\nآیا مطمئن هستید که می‌خواهید این چالش را پیش از موعد متوقف و خاتمه دهید؟\n\nپس از خاتمه، چالش به لیست «تکمیل شده‌ها» منتقل شده و گزارش نهایی در گروه ارسال می‌گردد.',
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                Markup.button.callback(
+                  '✅ بله، چالش را خاتمه بده',
+                  `confirm_end_challenge_${challengeId}`
+                )
+              ],
+              [
+                Markup.button.callback(
+                  '❌ خیر، انصراف',
+                  `view_challenge_${challengeId}` // بازگشت به جزئیات همان چالش
+                )
+              ]
+            ]
+          }
+        }
+      )
+      .catch(() => {});
+  } catch (error) {
+    logger.error('Error in end challenge prompt:', error);
+    await ctx
+      .answerCbQuery('⚠️ خطایی رخ داد.', { show_alert: true })
+      .catch(() => {});
+  }
+};
+
+// ۲. هندلر انجام قطعی عملیات خاتمه و ارسال گزارش در گروه
+export const handleDoEndChallenge = async (
   ctx: Context & { match: RegExpExecArray }
 ): Promise<void> => {
   try {
     const challengeId = ctx.match[1];
 
+    // ۱. آپدیت وضعیت چالش در دیتابیس
     const challenge = await ChallengeModel.findByIdAndUpdate(
       challengeId,
       { $set: { status: 'completed' } },
@@ -25,16 +84,117 @@ export const handleEndChallengeRequest = async (
 
     await ctx.answerCbQuery('✅ چالش با موفقیت خاتمه یافت.').catch(() => {});
 
+    // ۲. جمع‌آوری داده‌ها برای ارسال گزارش در گروه
+    const tenant = await TenantModel.findById(challenge.tenantId).lean();
+
+    if (tenant && tenant.chatId) {
+      const timeLogs = await TimeLogModel.aggregate([
+        { $match: { challengeId: challenge._id } },
+        {
+          $group: {
+            _id: '$telegramId',
+            daysLogged: { $sum: 1 },
+            totalMinutes: { $sum: '$minutes' }
+          }
+        }
+      ]);
+      const logsMap = new Map(timeLogs.map((log) => [log._id, log]));
+
+      const allMemberIds = challenge.teams.flatMap((t) => t.members);
+      const usersInfo = await UserModel.find({
+        telegramId: { $in: allMemberIds }
+      }).lean();
+
+      // محاسبه آمار تیم‌ها و مرتب‌سازی از بیشترین به کمترین
+      const teamStats = challenge.teams
+        .map((team) => {
+          let teamTotal = 0;
+          const membersWithStats = team.members
+            .map((memberId) => {
+              const user = usersInfo.find((u) => u.telegramId === memberId);
+              const name = user
+                ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`
+                : 'کاربر';
+              const stats = logsMap.get(memberId) || {
+                daysLogged: 0,
+                totalMinutes: 0
+              };
+              teamTotal += stats.totalMinutes;
+              return { name, ...stats, telegramId: memberId };
+            })
+            .sort((a, b) => b.totalMinutes - a.totalMinutes);
+
+          return { ...team, teamTotal, membersWithStats };
+        })
+        .sort((a, b) => b.teamTotal - a.teamTotal);
+
+      const winnerTeam =
+        teamStats.length > 0 && teamStats[0].teamTotal > 0
+          ? teamStats[0]
+          : null;
+
+      // ۳. ساخت پیام گزارش نهایی با خط جداکننده
+      const sendOptions: any = { parse_mode: 'Markdown' };
+      if (tenant.topicId) sendOptions.message_thread_id = tenant.topicId;
+
+      let reportMsg = `➖➖➖➖➖➖➖➖➖➖\n\n`;
+      reportMsg += `🏁 **چالش مطالعاتی رسماً به پایان رسید!** 🏁\n\n`;
+      reportMsg += `📅 **تاریخ شروع:** ${challenge.startDateText}\n`;
+      reportMsg += `⏳ **مدت زمان برنامه‌ریزی شده:** ${challenge.durationDays} روز\n\n`;
+
+      if (winnerTeam) {
+        reportMsg += `🏆 **تیم قهرمان:** ${winnerTeam.name} (با مجموع ${formatMinutesToTime(winnerTeam.teamTotal)})\n\n`;
+      } else {
+        reportMsg += `🏆 **تیم قهرمان:** نامشخص (هیچ تایمی ثبت نشده است)\n\n`;
+      }
+
+      reportMsg += `📊 **جزئیات و عملکرد تیم‌ها:**\n\n`;
+      teamStats.forEach((team) => {
+        reportMsg += `🔹 **${team.name}** - مجموع: ${formatMinutesToTime(team.teamTotal)}\n`;
+        if (team.membersWithStats.length === 0) {
+          reportMsg += `  بدون عضو\n`;
+        } else {
+          team.membersWithStats.forEach((member) => {
+            reportMsg += `   👤 ${member.name}: ${formatMinutesToTime(member.totalMinutes)} (در ${member.daysLogged} روز)\n`;
+          });
+        }
+        reportMsg += `\n`;
+      });
+
+      // ارسال پیام گزارش اصلی
+      await ctx.telegram
+        .sendMessage(tenant.chatId, reportMsg, sendOptions)
+        .catch((err) => {
+          logger.error('Failed to send challenge end report to group:', err);
+        });
+
+      // ۴. ارسال پیام جداگانه تبریک به نفر برتر تیم برنده
+      if (winnerTeam && winnerTeam.membersWithStats.length > 0) {
+        const topUser = winnerTeam.membersWithStats[0]; // چون قبلاً مرتب شده است، نفر اول دارای بیشترین ساعت است
+        if (topUser.totalMinutes > 0) {
+          const congratsMsg =
+            `🎉 **تبریک ویژه!** 🎉\n\n` +
+            `👤 **${topUser.name}** عزیز از **${winnerTeam.name}**\n\n` +
+            `شما با ثبت **${formatMinutesToTime(topUser.totalMinutes)}** زمان مطالعه، رکورددار و برترین فرد تیم قهرمان شدید! 🎖👏`;
+
+          await ctx.telegram
+            .sendMessage(tenant.chatId, congratsMsg, sendOptions)
+            .catch(() => {});
+        }
+      }
+    }
+
+    // ۵. تغییر وضعیت در پنل ادمین
     await ctx
       .editMessageText(
-        '✅ چالش متوقف شد و هم‌اکنون به لیست چالش‌های تکمیل شده منتقل گردید.',
+        '✅ چالش متوقف شد و گزارش نهایی در گروه ارسال گردید.\n\nهم‌اکنون این چالش در لیست چالش‌های تکمیل شده قرار دارد.',
         {
           parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
               [
                 Markup.button.callback(
-                  '🔙 بازگشت به لیست چالش‌ها',
+                  '🔙 بازگشت به لیست چالش‌های تکمیل شده',
                   `action_list_challenges_${challenge.tenantId}_completed`
                 )
               ]
@@ -44,9 +204,9 @@ export const handleEndChallengeRequest = async (
       )
       .catch(() => {});
   } catch (error) {
-    logger.error('Error ending challenge:', error);
+    logger.error('Error doing end challenge:', error);
     await ctx
-      .answerCbQuery('⚠️ خطایی رخ داد.', { show_alert: true })
+      .answerCbQuery('⚠️ خطایی در خاتمه چالش رخ داد.', { show_alert: true })
       .catch(() => {});
   }
 };
