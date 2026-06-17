@@ -16,6 +16,7 @@
   "dependencies": {
     "dotenv": "^17.4.2",
     "express": "^4.19.2",
+    "jalaali-js": "^1.2.8",
     "mongoose": "^8.3.4",
     "shared-types": "*",
     "telegraf": "^4.16.3",
@@ -24,6 +25,7 @@
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
+    "@types/jalaali-js": "^1.2.0",
     "@types/node": "^20.12.7",
     "tsx": "^4.7.3"
   }

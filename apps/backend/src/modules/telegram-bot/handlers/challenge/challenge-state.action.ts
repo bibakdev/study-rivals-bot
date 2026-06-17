@@ -1,0 +1,216 @@
+// apps/backend/src/modules/telegram-bot/handlers/challenge/challenge-state.action.ts
+
+import { Context, Markup } from 'telegraf';
+import mongoose from 'mongoose';
+import { BotStateModel } from '#modules/telegram-bot/models/bot-state.model';
+import { TargetModel } from '#modules/target/target.model';
+import { ChallengeModel } from '#modules/challenge/challenge.model';
+import { UserModel } from '#modules/auth/user.model';
+import { logger } from '#utils/logger';
+import { parsePersianDate } from '#modules/challenge/utils/date-parser.util';
+
+// تابع کمکی برای تبدیل دقیقه به فرمت ساعت و دقیقه (مثلاً 90 دقیقه -> 1:30)
+const formatMinutesToTime = (minutes?: number): string => {
+  if (minutes === undefined || minutes === null) return 'نامشخص';
+  const hrs = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hrs}:${mins.toString().padStart(2, '0')}`;
+};
+
+export const handleChallengeStateText = async (
+  ctx: Context,
+  telegramId: number,
+  text: string
+): Promise<boolean> => {
+  try {
+    const state = await BotStateModel.findOne({
+      telegramId,
+      action: { $regex: '^ADD_CHALLENGE_' }
+    }).lean();
+
+    if (!state) return false;
+
+    const payload = state.payload as any;
+    const tenantId = payload.tenantId;
+
+    // گام ۱ به ۲: دریافت تاریخ و پرسش مدت زمان
+    if (state.action === 'ADD_CHALLENGE_DATE') {
+      const parsedDate = parsePersianDate(text);
+
+      if (!parsedDate.isValid) {
+        await ctx.reply(`❌ ${parsedDate.error}`);
+        return true;
+      }
+
+      await BotStateModel.updateOne(
+        { telegramId },
+        {
+          $set: {
+            action: 'ADD_CHALLENGE_DURATION',
+            'payload.startDateText': text,
+            'payload.startDate': parsedDate.date
+          }
+        }
+      );
+
+      await ctx.reply(
+        '⏳ **گام ۲: مدت زمان چالش**\n\nلطفاً تعداد روزهای چالش را به صورت عدد وارد کنید (مثلاً: `6`):',
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                Markup.button.callback(
+                  '❌ انصراف',
+                  `cancel_add_challenge_${tenantId}`
+                )
+              ]
+            ]
+          }
+        }
+      );
+      return true;
+    }
+
+    // گام ۲ به ۳: دریافت مدت زمان و پرسش تعداد گروه‌ها
+    if (state.action === 'ADD_CHALLENGE_DURATION') {
+      const duration = parseInt(text, 10);
+      if (isNaN(duration) || duration <= 0) {
+        await ctx.reply('❌ لطفاً فقط یک عدد صحیح و مثبت وارد کنید.');
+        return true;
+      }
+
+      const targets = await TargetModel.find({
+        tenantId: new mongoose.Types.ObjectId(tenantId)
+      }).lean();
+      const targetCount = targets.length;
+
+      if (targetCount === 0) {
+        await BotStateModel.deleteOne({ telegramId }); // خروج خودکار
+        await ctx.reply(
+          '⚠️ **هیچ تارگتی یافت نشد!**\nدر این گروه هنوز هیچ کاربری تارگت خود را ثبت نکرده است. لطفاً ابتدا کاربران تارگت‌های خود را مشخص کنند.'
+        );
+        return true;
+      }
+
+      await BotStateModel.updateOne(
+        { telegramId },
+        {
+          $set: {
+            action: 'ADD_CHALLENGE_TEAMS',
+            'payload.durationDays': duration
+          }
+        }
+      );
+
+      await ctx.reply(
+        `👥 **گام ۳: تعیین تیم‌ها**\n\nتا این لحظه **${targetCount} نفر** برای چالش تارگت مشخص کرده‌اند.\nمی‌خواهید این نفرات به چند تیم تقسیم شوند؟ (عدد وارد کنید، پیش‌فرض: \`2\`):`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                Markup.button.callback(
+                  '❌ انصراف',
+                  `cancel_add_challenge_${tenantId}`
+                )
+              ]
+            ]
+          }
+        }
+      );
+      return true;
+    }
+
+    // گام نهایی: دریافت تعداد تیم‌ها، ساخت چالش و توزیع نفرات
+    if (state.action === 'ADD_CHALLENGE_TEAMS') {
+      let teamCount = parseInt(text, 10);
+      if (isNaN(teamCount) || teamCount <= 0) {
+        teamCount = 2; // پیش‌فرض
+      }
+
+      const targets = await TargetModel.find({
+        tenantId: new mongoose.Types.ObjectId(tenantId)
+      }).lean();
+
+      const sortedTargets = targets.sort(
+        (a, b) => b.dailyMinutes - a.dailyMinutes
+      );
+
+      const teamStats = Array.from({ length: teamCount }, (_, i) => ({
+        name: `گروه ${String.fromCharCode(65 + i)}`, // A, B, C...
+        members: [] as number[],
+        totalMinutes: 0
+      }));
+
+      for (const target of sortedTargets) {
+        let minTeam = teamStats[0];
+        for (let i = 1; i < teamStats.length; i++) {
+          if (teamStats[i].totalMinutes < minTeam.totalMinutes) {
+            minTeam = teamStats[i];
+          }
+        }
+        minTeam.members.push(target.telegramId);
+        minTeam.totalMinutes += target.dailyMinutes;
+      }
+
+      const teams = teamStats.map((t) => ({
+        name: t.name,
+        members: t.members
+      }));
+
+      const startDate = new Date(payload.startDate);
+      const durationDays = payload.durationDays;
+      const endDate = new Date(
+        startDate.getTime() + durationDays * 24 * 60 * 60 * 1000
+      );
+
+      await ChallengeModel.create({
+        tenantId: new mongoose.Types.ObjectId(tenantId),
+        type: 'group',
+        startDateText: payload.startDateText,
+        startDate: startDate,
+        endDate: endDate,
+        durationDays: durationDays,
+        teams
+      });
+
+      await BotStateModel.deleteOne({ telegramId });
+
+      let reportMessage = `✅ **چالش گروهی با موفقیت ایجاد شد!**\n\n`;
+      reportMessage += `📅 **تاریخ شروع:** ${payload.startDateText}\n`;
+      reportMessage += `⏳ **مدت زمان:** ${payload.durationDays} روز\n\n`;
+      reportMessage += `📊 **گروه‌بندی‌ها (توزیع عادلانه):**\n\n`;
+
+      const allUserIds = targets.map((t) => t.telegramId);
+      const usersInfo = await UserModel.find({
+        telegramId: { $in: allUserIds }
+      }).lean();
+
+      for (const teamStat of teamStats) {
+        const formattedTotal = formatMinutesToTime(teamStat.totalMinutes);
+        reportMessage += `🔹 **${teamStat.name}** (مجموع تارگت: ${formattedTotal})\n`;
+
+        for (const memberId of teamStat.members) {
+          const user = usersInfo.find((u) => u.telegramId === memberId);
+          const rawTarget = targets.find((t) => t.telegramId === memberId);
+          const name = user ? user.firstName : 'کاربر';
+          const targetValue = formatMinutesToTime(rawTarget?.dailyMinutes);
+
+          reportMessage += `👤 ${name} - تارگت: ${targetValue}\n`;
+        }
+        reportMessage += '\n';
+      }
+
+      await ctx.reply(reportMessage, { parse_mode: 'Markdown' });
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    logger.error('Error in challenge state machine:', error);
+    await ctx.reply('⚠️ خطایی در پردازش اطلاعات رخ داد. فرآیند لغو شد.');
+    await BotStateModel.deleteOne({ telegramId }).catch(() => {});
+    return true;
+  }
+};

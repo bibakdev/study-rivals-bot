@@ -41,7 +41,11 @@ export const handleMyGroupsRequest = async (ctx: Context): Promise<void> => {
             }
           }
         )
-        .catch(() => {});
+        .catch((err) => {
+          if (!err.description?.includes('message is not modified')) {
+            throw err;
+          }
+        });
       return;
     }
 
@@ -80,13 +84,20 @@ export const handleMyGroupsRequest = async (ctx: Context): Promise<void> => {
     ]);
 
     // ویرایش پیام فعلی
-    await ctx.editMessageText(
-      '👥 **لیست چالش‌های شما:**\nلطفاً گروه مورد نظر خود را برای ورود انتخاب کنید:',
-      {
-        parse_mode: 'Markdown',
-        reply_markup: { inline_keyboard: buttons }
-      }
-    );
+    await ctx
+      .editMessageText(
+        '👥 **لیست چالش‌های شما:**\nلطفاً گروه مورد نظر خود را برای ورود انتخاب کنید:',
+        {
+          parse_mode: 'Markdown',
+          reply_markup: { inline_keyboard: buttons }
+        }
+      )
+      .catch((err) => {
+        // 👈 نادیده گرفتن خطای بی‌خطر یکسان بودن پیام
+        if (!err.description?.includes('message is not modified')) {
+          throw err;
+        }
+      });
   } catch (error) {
     logger.error('Error handling my groups action:', error);
     await ctx

@@ -4,16 +4,26 @@ import { Telegraf } from 'telegraf';
 import rateLimit from 'telegraf-ratelimit';
 import { env } from '#core/config/env';
 import { logger } from '#utils/logger';
+
+// Router & Start
 import { startCommand } from '#modules/telegram-bot/commands/start/start.router';
 import { handleBotOnboardingText } from '#modules/telegram-bot/handlers/onboarding/onboarding.router';
 import { handleGroupTenantMessages } from '#modules/telegram-bot/handlers/tenant/tenant.router';
+
+// Mother
 import { handleGenerateLicense } from '#modules/telegram-bot/handlers/mother/generate-license.action';
-import { handleSelectTenant } from '#modules/telegram-bot/handlers/tenant/select-tenant.action';
+
+// Onboarding
 import { handleAddGroupRequest } from '#modules/telegram-bot/handlers/onboarding/add-group.action';
+
+// Tenant / Group management
+import { handleSelectTenant } from '#modules/telegram-bot/handlers/tenant/select-tenant.action';
 import { handleMyGroupsRequest } from '#modules/telegram-bot/handlers/tenant/my-groups.action';
 import { handleManageGroupsRequest } from '#modules/telegram-bot/handlers/tenant/manage-groups.action';
 import { handleBackToMain } from '#modules/telegram-bot/handlers/tenant/back-to-main.action';
 import { handleLeaveGroup } from '#modules/telegram-bot/handlers/tenant/leave-group.action';
+
+// Admin & Suspension
 import { handleAddAdminRequest } from '#modules/telegram-bot/handlers/tenant/add-admin.action';
 import { handlePromoteSubAdmin } from '#modules/telegram-bot/handlers/tenant/promote-admin.action';
 import { handleRemoveAdminRequest } from '#modules/telegram-bot/handlers/tenant/remove-admin.action';
@@ -23,12 +33,18 @@ import { handleDoSuspend } from '#modules/telegram-bot/handlers/tenant/do-suspen
 import { handleUnsuspendUserRequest } from '#modules/telegram-bot/handlers/tenant/unsuspend-user.action';
 import { handleDoUnsuspend } from '#modules/telegram-bot/handlers/tenant/do-unsuspend.action';
 
-// ایمپورت هندلرهای تارگت
+// Target Handlers
 import { handleSetTargetRequest } from '#modules/telegram-bot/handlers/target/set-target.action';
 import { handleSelectChallengeRequest } from '#modules/telegram-bot/handlers/target/select-challenge.action';
 import { handleDeleteTargetRequest } from '#modules/telegram-bot/handlers/target/delete-target.action';
 import { handleEditTargetRequest } from '#modules/telegram-bot/handlers/target/edit-target.action';
-import { handleCancelTargetRequest } from '#modules/telegram-bot/handlers/target/cancel-target.action'; // 👈 هندلر جدید
+import { handleCancelTargetRequest } from '#modules/telegram-bot/handlers/target/cancel-target.action';
+
+// Challenge Handlers
+import { handleChallengesMenu } from '#modules/telegram-bot/handlers/challenge/challenges-menu.action';
+import { handleGroupChallengeMenu } from '#modules/telegram-bot/handlers/challenge/group-challenge-menu.action';
+import { handleAddGroupChallengeRequest } from '#modules/telegram-bot/handlers/challenge/add-group-challenge.action';
+import { handleCancelChallengeWizard } from '#modules/telegram-bot/handlers/challenge/cancel-challenge-wizard.action'; // 👈 اضافه شد
 
 export class BotService {
   private bot: Telegraf;
@@ -57,6 +73,7 @@ export class BotService {
 
     this.bot.use(rateLimit(rateLimitConfig));
     this.bot.start(startCommand);
+
     this.bot.action('action_generate_license', handleGenerateLicense);
     this.bot.action(/^select_tenant_([a-f\d]{24})$/i, handleSelectTenant);
     this.bot.action('action_manage_groups', handleManageGroupsRequest);
@@ -84,7 +101,24 @@ export class BotService {
     this.bot.action(
       /^action_cancel_target_([a-f\d]{24})$/i,
       handleCancelTargetRequest
-    ); // 👈 ثبت دکمه انصراف
+    );
+
+    // اکشن‌های مربوط به منوی چالش‌ها
+    this.bot.action(/^action_challenges_([a-f\d]{24})$/i, handleChallengesMenu);
+    this.bot.action(
+      /^action_group_challenge_([a-f\d]{24})$/i,
+      handleGroupChallengeMenu
+    );
+    this.bot.action(
+      /^action_add_group_challenge_([a-f\d]{24})$/i,
+      handleAddGroupChallengeRequest
+    );
+
+    // 👈 اضافه شدن مسیر دکمه لغو استیت ساخت چالش
+    this.bot.action(
+      /^cancel_add_challenge_([a-f\d]{24})$/i,
+      handleCancelChallengeWizard
+    );
 
     // ادمین‌ها
     this.bot.action(/^action_add_admin_(.+)$/, handleAddAdminRequest);
@@ -101,7 +135,10 @@ export class BotService {
     this.bot.action(/^action_unsuspend_user_(.+)$/, handleUnsuspendUserRequest);
     this.bot.action(/^do_unsuspend_([a-f\d]{24})_(\d+)$/i, handleDoUnsuspend);
 
+    // هندلر خارج شدن کاربران
     this.bot.on('left_chat_member', handleLeaveGroup);
+
+    // هندلر مرکزی پیام‌های متنی
     this.bot.on('text', async (ctx, next) => {
       const chatType = ctx.chat?.type;
       if (chatType === 'private') {

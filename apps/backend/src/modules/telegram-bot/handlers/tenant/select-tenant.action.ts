@@ -86,6 +86,14 @@ export const handleSelectTenant = async (
       }
     ]);
 
+    // 👈 اضافه شدن دکمه جدید "چالش‌ها" برای همه کاربران
+    inlineKeyboard.push([
+      {
+        text: '🏆 چالش‌ها',
+        callback_data: `action_challenges_${tenantId}`
+      }
+    ]);
+
     // اضافه شدن دکمه‌های تعلیق و رفع تعلیق به همراه ادمین‌ها (فقط برای ادمین اصلی و مادر)
     if (systemRole === 'main_admin' || systemRole === 'mother') {
       inlineKeyboard.push(
