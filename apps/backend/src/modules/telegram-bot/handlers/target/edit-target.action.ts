@@ -2,6 +2,8 @@
 
 import { Context, Markup } from 'telegraf';
 import { BotStateModel } from '#modules/telegram-bot/models/bot-state.model';
+import { TargetModel } from '#modules/target/target.model';
+import { formatMinutesToTime } from '#modules/time-log/utils/time-parser.util';
 import { logger } from '#utils/logger';
 
 export const handleEditTargetRequest = async (
@@ -12,19 +14,29 @@ export const handleEditTargetRequest = async (
     const telegramId = ctx.from?.id;
 
     await ctx.answerCbQuery().catch(() => {});
-
     if (!telegramId) return;
 
-    // ثبت وضعیت کاربر در دیتابیس
+    const existingTarget = await TargetModel.findOne({
+      tenantId,
+      telegramId
+    }).lean();
+    const currentTargetText = existingTarget
+      ? formatMinutesToTime(existingTarget.dailyMinutes)
+      : 'نامشخص';
+
+    // تنظیم وضعیت بات روی انتظار برای ویرایش
     await BotStateModel.findOneAndUpdate(
       { telegramId },
-      { action: 'WAITING_FOR_TARGET', payload: { tenantId } },
+      { $set: { action: 'EDIT_TARGET', payload: { tenantId } } },
       { upsert: true }
     );
 
+    const exampleText =
+      'برای وارد کردن ساعت و دقیقه از دونقطه استفاده کنید (مثلاً `8:30` یا `0:20`) و برای ثبت ساعت رند فقط عدد وارد کنید (مثلاً `4` یعنی ۴ ساعت).';
+
     await ctx
       .editMessageText(
-        `✏️ **ویرایش تارگت چالش گروهی**\n\nلطفاً تارگت مطالعه روزانه جدید خود را دقیقاً با فرمت \`HH:MM\` تایپ کرده و بفرستید.\n\n💡 مثال: \`10:30\``,
+        `✏️ **ویرایش تارگت روزانه**\n\n⏱ تارگت فعلی شما: **${currentTargetText}**\n\nلطفاً مقدار تارگت جدید خود را ارسال نمایید.\n\n💡 ${exampleText}`,
         {
           parse_mode: 'Markdown',
           reply_markup: {
@@ -41,6 +53,6 @@ export const handleEditTargetRequest = async (
       )
       .catch(() => {});
   } catch (error) {
-    logger.error('Error in edit target action:', error);
+    logger.error('Error handling edit target action:', error);
   }
 };

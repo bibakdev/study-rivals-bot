@@ -1,9 +1,9 @@
 // apps/backend/src/modules/telegram-bot/handlers/target/set-target.action.ts
 
 import { Context, Markup } from 'telegraf';
-import mongoose from 'mongoose';
-import { TargetModel } from '#modules/target/target.model';
 import { BotStateModel } from '#modules/telegram-bot/models/bot-state.model';
+import { TargetModel } from '#modules/target/target.model';
+import { formatMinutesToTime } from '#modules/time-log/utils/time-parser.util';
 import { logger } from '#utils/logger';
 
 export const handleSetTargetRequest = async (
@@ -14,26 +14,19 @@ export const handleSetTargetRequest = async (
     const telegramId = ctx.from?.id;
 
     await ctx.answerCbQuery().catch(() => {});
-
     if (!telegramId) return;
 
-    // جستجوی تارگت کاربر در دیتابیس
+    // بررسی اینکه آیا قبلاً تارگت دارد یا خیر
     const existingTarget = await TargetModel.findOne({
-      tenantId: new mongoose.Types.ObjectId(tenantId),
+      tenantId,
       telegramId
     }).lean();
 
     if (existingTarget) {
-      // 👈 دریافت دقیقه‌ها و تبدیل به ساعت و دقیقه جهت نمایش صحیح
-      const totalMinutes = existingTarget.dailyMinutes || 0;
-      const hours = Math.floor(totalMinutes / 60);
-      const minutes = totalMinutes % 60;
-
-      const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-
+      // اگر تارگت دارد، دکمه ویرایش و حذف را نمایش می‌دهیم
       await ctx
         .editMessageText(
-          `🎯 **وضعیت تارگت شما**\n\nشما قبلاً یک تارگت برای این چالش ثبت کرده‌اید:\n⏱️ زمان مطالعه روزانه: **${hours} ساعت و ${minutes} دقیقه** (\`${formattedTime}\`)\n\nجهت تغییر یا حذف، از دکمه‌های زیر استفاده کنید:`,
+          `🎯 **مدیریت تارگت**\n\nشما قبلاً تارگت خود را روی **${formatMinutesToTime(existingTarget.dailyMinutes)}** تنظیم کرده‌اید.`,
           {
             parse_mode: 'Markdown',
             reply_markup: {
@@ -50,7 +43,7 @@ export const handleSetTargetRequest = async (
                 ],
                 [
                   Markup.button.callback(
-                    '🔙 بازگشت به پنل چالش',
+                    '🔙 بازگشت به پنل',
                     `select_tenant_${tenantId}`
                   )
                 ]
@@ -58,31 +51,23 @@ export const handleSetTargetRequest = async (
             }
           }
         )
-        .catch((err) => {
-          if (!err.description?.includes('message is not modified')) {
-            logger.warn(
-              `Could not edit message in set target: ${err.description}`
-            );
-          }
-        });
+        .catch(() => {});
       return;
     }
 
-    // اگر تارگت نداشت، وضعیت ربات به "در انتظار دریافت تارگت" تغییر می‌کند
+    // اگر تارگت نداشت، وضعیت را برای دریافت متن آماده می‌کنیم
     await BotStateModel.findOneAndUpdate(
       { telegramId },
-      {
-        $set: {
-          action: 'WAITING_FOR_TARGET',
-          payload: { tenantId }
-        }
-      },
+      { $set: { action: 'SET_TARGET', payload: { tenantId } } },
       { upsert: true }
     );
 
+    const exampleText =
+      'برای وارد کردن ساعت و دقیقه از دونقطه استفاده کنید (مثلاً `8:30` یا `0:20`) و برای ثبت ساعت رند فقط عدد وارد کنید (مثلاً `4` یعنی ۴ ساعت).';
+
     await ctx
       .editMessageText(
-        '🎯 **ثبت تارگت روزانه**\n\nلطفاً تارگت (هدف) مطالعه روزانه خود را دقیقاً با فرمت `HH:MM` برای من ارسال کنید.\n\n📌 **مثال:** برای ثبت 4 ساعت و 30 دقیقه، دقیقاً متن زیر را بفرستید:\n`04:30`',
+        `🎯 **ثبت تارگت روزانه**\n\nلطفاً مقداری که قصد دارید هر روز مطالعه کنید را ارسال نمایید.\n\n💡 ${exampleText}`,
         {
           parse_mode: 'Markdown',
           reply_markup: {
@@ -91,7 +76,7 @@ export const handleSetTargetRequest = async (
                 Markup.button.callback(
                   '❌ انصراف',
                   `action_cancel_target_${tenantId}`
-                )
+                ) // بازگشت در صورت انصراف
               ]
             ]
           }
@@ -100,8 +85,5 @@ export const handleSetTargetRequest = async (
       .catch(() => {});
   } catch (error) {
     logger.error('Error handling set target action:', error);
-    await ctx
-      .answerCbQuery('⚠️ خطایی رخ داد.', { show_alert: true })
-      .catch(() => {});
   }
 };
