@@ -44,7 +44,32 @@ import { handleCancelTargetRequest } from '#modules/telegram-bot/handlers/target
 import { handleChallengesMenu } from '#modules/telegram-bot/handlers/challenge/challenges-menu.action';
 import { handleGroupChallengeMenu } from '#modules/telegram-bot/handlers/challenge/group-challenge-menu.action';
 import { handleAddGroupChallengeRequest } from '#modules/telegram-bot/handlers/challenge/add-group-challenge.action';
-import { handleCancelChallengeWizard } from '#modules/telegram-bot/handlers/challenge/cancel-challenge-wizard.action'; // 👈 اضافه شد
+import { handleCancelChallengeWizard } from '#modules/telegram-bot/handlers/challenge/cancel-challenge-wizard.action';
+import { handleManageGroupChallengesRequest } from '#modules/telegram-bot/handlers/challenge/manage-group-challenges.action';
+import { handleListGroupChallengesRequest } from '#modules/telegram-bot/handlers/challenge/list-group-challenges.action';
+import { handleViewChallengeRequest } from '#modules/telegram-bot/handlers/challenge/view-challenge.action';
+import { handleDeleteGroupChallengeRequest } from '#modules/telegram-bot/handlers/challenge/delete-challenge.action';
+import { handleStartGroupChallengeRequest } from '#modules/telegram-bot/handlers/challenge/start-challenge.action';
+import { handleEditChallengeRequest } from '#modules/telegram-bot/handlers/challenge/edit-challenge.action';
+import { handleEditTeamRequest } from '#modules/telegram-bot/handlers/challenge/edit-team.action';
+import { handleChangeTeamNameRequest } from '#modules/telegram-bot/handlers/challenge/change-team-name.action';
+import { handleCancelEditTeamName } from '#modules/telegram-bot/handlers/challenge/cancel-edit-team-name.action';
+import { handleChangeTeamMembersRequest } from '#modules/telegram-bot/handlers/challenge/change-team-members.action';
+import {
+  handleRemoveMemberMenu,
+  handleDoRemoveMember
+} from '#modules/telegram-bot/handlers/challenge/remove-team-member.action';
+import {
+  handleAddMemberMenu,
+  handleDoAddMember
+} from '#modules/telegram-bot/handlers/challenge/add-team-member.action';
+import { handleSendTeamsToGroupRequest } from '#modules/telegram-bot/handlers/challenge/send-teams.action';
+
+// 👈 اکشن‌های مربوط به چالش در حال اجرا و ثبت زمان
+import { handleEndChallengeRequest } from '#modules/telegram-bot/handlers/challenge/end-challenge.action';
+import { handleSendLeaderboardRequest } from '#modules/telegram-bot/handlers/challenge/send-leaderboard.action';
+import { handleViewLoggedTimesRequest } from '#modules/telegram-bot/handlers/challenge/view-logged-times.action';
+import { handleLogTimeMenuRequest } from '#modules/telegram-bot/handlers/time-log/log-time-menu.action';
 
 export class BotService {
   private bot: Telegraf;
@@ -103,6 +128,12 @@ export class BotService {
       handleCancelTargetRequest
     );
 
+    // 👈 اکشن‌های مربوط به منوی ثبت ساعت
+    this.bot.action(
+      /^action_log_time_([a-f\d]{24})$/i,
+      handleLogTimeMenuRequest
+    );
+
     // اکشن‌های مربوط به منوی چالش‌ها
     this.bot.action(/^action_challenges_([a-f\d]{24})$/i, handleChallengesMenu);
     this.bot.action(
@@ -113,11 +144,88 @@ export class BotService {
       /^action_add_group_challenge_([a-f\d]{24})$/i,
       handleAddGroupChallengeRequest
     );
-
-    // 👈 اضافه شدن مسیر دکمه لغو استیت ساخت چالش
     this.bot.action(
       /^cancel_add_challenge_([a-f\d]{24})$/i,
       handleCancelChallengeWizard
+    );
+
+    // مدیریت وضعیت چالش‌ها
+    this.bot.action(
+      /^action_manage_group_challenges_([a-f\d]{24})$/i,
+      handleManageGroupChallengesRequest
+    );
+    this.bot.action(
+      /^action_list_challenges_([a-f\d]{24})_(pending|active|completed)$/i,
+      handleListGroupChallengesRequest
+    );
+    this.bot.action(
+      /^view_challenge_([a-f\d]{24})$/i,
+      handleViewChallengeRequest
+    );
+    this.bot.action(
+      /^send_teams_([a-f\d]{24})$/i,
+      handleSendTeamsToGroupRequest
+    );
+
+    // اکشن‌های چالش در حال اجرا
+    this.bot.action(
+      /^end_challenge_([a-f\d]{24})$/i,
+      handleEndChallengeRequest
+    );
+    this.bot.action(
+      /^send_leaderboard_([a-f\d]{24})$/i,
+      handleSendLeaderboardRequest
+    );
+    this.bot.action(
+      /^view_logged_times_([a-f\d]{24})$/i,
+      handleViewLoggedTimesRequest
+    );
+
+    // حذف، شروع و ویرایش چالش
+    this.bot.action(
+      /^delete_challenge_([a-f\d]{24})$/i,
+      handleDeleteGroupChallengeRequest
+    );
+    this.bot.action(
+      /^start_challenge_([a-f\d]{24})$/i,
+      handleStartGroupChallengeRequest
+    );
+    this.bot.action(
+      /^edit_challenge_([a-f\d]{24})$/i,
+      handleEditChallengeRequest
+    );
+    this.bot.action(/^edit_team_([a-f\d]{24})_(\d+)$/i, handleEditTeamRequest);
+
+    // ویرایش نام تیم
+    this.bot.action(
+      /^change_team_name_([a-f\d]{24})_(\d+)$/i,
+      handleChangeTeamNameRequest
+    );
+    this.bot.action(
+      /^cancel_edit_team_name_([a-f\d]{24})_(\d+)$/i,
+      handleCancelEditTeamName
+    );
+
+    // ویرایش اعضای تیم
+    this.bot.action(
+      /^change_team_members_([a-f\d]{24})_(\d+)$/i,
+      handleChangeTeamMembersRequest
+    );
+    this.bot.action(
+      /^remove_member_menu_([a-f\d]{24})_(\d+)$/i,
+      handleRemoveMemberMenu
+    );
+    this.bot.action(
+      /^do_remove_member_([a-f\d]{24})_(\d+)_(\d+)$/i,
+      handleDoRemoveMember
+    );
+    this.bot.action(
+      /^add_member_menu_([a-f\d]{24})_(\d+)$/i,
+      handleAddMemberMenu
+    );
+    this.bot.action(
+      /^do_add_member_([a-f\d]{24})_(\d+)_(\d+)$/i,
+      handleDoAddMember
     );
 
     // ادمین‌ها

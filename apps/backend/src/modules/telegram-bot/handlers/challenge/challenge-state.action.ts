@@ -25,13 +25,71 @@ export const handleChallengeStateText = async (
   try {
     const state = await BotStateModel.findOne({
       telegramId,
-      action: { $regex: '^ADD_CHALLENGE_' }
+      action: { $regex: '^(ADD_CHALLENGE_|EDIT_TEAM_NAME)' }
     }).lean();
 
     if (!state) return false;
 
     const payload = state.payload as any;
     const tenantId = payload.tenantId;
+
+    // پردازش تغییر نام تیم
+    if (state.action === 'EDIT_TEAM_NAME') {
+      const { challengeId, teamIndex } = payload;
+      const newName = text.trim();
+
+      if (newName.length < 2) {
+        await ctx.reply(
+          '❌ نام تیم باید حداقل ۲ کاراکتر باشد. لطفاً دوباره ارسال کنید:'
+        );
+        return true;
+      }
+
+      // آپدیت نام تیم در دیتابیس
+      const challenge = await ChallengeModel.findById(challengeId);
+
+      if (!challenge || !challenge.teams[teamIndex]) {
+        await ctx.reply('❌ چالش یا تیم مورد نظر یافت نشد.');
+        await BotStateModel.deleteOne({ telegramId });
+        return true;
+      }
+
+      challenge.teams[teamIndex].name = newName;
+      await challenge.save();
+
+      // خروج از وضعیت
+      await BotStateModel.deleteOne({ telegramId });
+
+      const inlineKeyboard = [
+        [
+          Markup.button.callback(
+            '📝 تغییر نام تیم',
+            `change_team_name_${challengeId}_${teamIndex}`
+          )
+        ],
+        [
+          Markup.button.callback(
+            '👤 تغییر اعضای تیم',
+            `change_team_members_${challengeId}_${teamIndex}`
+          )
+        ],
+        [
+          Markup.button.callback(
+            '🔙 بازگشت به لیست تیم‌ها',
+            `edit_challenge_${challengeId}`
+          )
+        ]
+      ];
+
+      await ctx.reply(
+        `✅ نام تیم با موفقیت به **${newName}** تغییر یافت.\n\n⚙️ **مدیریت تیم:** ${newName}\n\nلطفاً عملیات مورد نظر را انتخاب کنید:`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: { inline_keyboard: inlineKeyboard }
+        }
+      );
+      return true;
+    }
 
     // گام ۱ به ۲: دریافت تاریخ و پرسش مدت زمان
     if (state.action === 'ADD_CHALLENGE_DATE') {
@@ -202,7 +260,20 @@ export const handleChallengeStateText = async (
         reportMessage += '\n';
       }
 
-      await ctx.reply(reportMessage, { parse_mode: 'Markdown' });
+      // 👈 ارسال گزارش و اضافه کردن دکمه "بازگشت به لیست اجرا نشده"
+      await ctx.reply(reportMessage, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              Markup.button.callback(
+                '🔙 لیست چالش‌های اجرا نشده',
+                `action_list_challenges_${tenantId}_pending`
+              )
+            ]
+          ]
+        }
+      });
       return true;
     }
 

@@ -78,23 +78,33 @@ export const handleSelectTenant = async (
 
     const inlineKeyboard = [];
 
-    // 👈 اضافه شدن دکمه "ثبت تارگت" برای همه کاربران (مستقل از نقش)
+    // 👈 دکمه "ثبت تارگت" و "ثبت ساعت" برای همه کاربران (مدیر و کاربر عادی) نمایش داده می‌شود
     inlineKeyboard.push([
       {
         text: '🎯 ثبت تارگت',
         callback_data: `action_set_target_${tenantId}`
-      }
-    ]);
-
-    // 👈 اضافه شدن دکمه جدید "چالش‌ها" برای همه کاربران
-    inlineKeyboard.push([
+      },
       {
-        text: '🏆 چالش‌ها',
-        callback_data: `action_challenges_${tenantId}`
+        text: '⏱ ثبت ساعت',
+        callback_data: `action_log_time_${tenantId}`
       }
     ]);
 
-    // اضافه شدن دکمه‌های تعلیق و رفع تعلیق به همراه ادمین‌ها (فقط برای ادمین اصلی و مادر)
+    // 👈 محدودسازی منوی "چالش‌ها" فقط برای ادمین‌ها و اکانت مادر
+    if (
+      systemRole === 'mother' ||
+      systemRole === 'main_admin' ||
+      systemRole === 'sub_admin'
+    ) {
+      inlineKeyboard.push([
+        {
+          text: '🏆 مدیریت چالش‌ها',
+          callback_data: `action_challenges_${tenantId}`
+        }
+      ]);
+    }
+
+    // 👈 محدودسازی منوی ادمین‌ها و تعلیق (فقط ادمین اصلی و مالک پلتفرم)
     if (systemRole === 'main_admin' || systemRole === 'mother') {
       inlineKeyboard.push(
         [
@@ -120,6 +130,7 @@ export const handleSelectTenant = async (
       );
     }
 
+    // دکمه بازگشت همیشه در انتها قرار می‌گیرد
     inlineKeyboard.push([
       { text: '🔙 بازگشت به لیست گروه‌ها', callback_data: 'action_my_groups' }
     ]);
@@ -133,6 +144,7 @@ export const handleSelectTenant = async (
         }
       )
       .catch(async () => {
+        // در صورت عدم تغییر متن برای جلوگیری از کرش
         await ctx.reply(
           `✅ **گروه با موفقیت انتخاب شد.**\n\n👤 **نقش شما:** ${persianRole}\n\nروی دکمه آبی‌رنگ **Open** کلیک کنید.`,
           {
