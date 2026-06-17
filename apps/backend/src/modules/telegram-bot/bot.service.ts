@@ -33,7 +33,6 @@ import { handleDoSuspend } from '#modules/telegram-bot/handlers/tenant/do-suspen
 import { handleUnsuspendUserRequest } from '#modules/telegram-bot/handlers/tenant/unsuspend-user.action';
 import { handleDoUnsuspend } from '#modules/telegram-bot/handlers/tenant/do-unsuspend.action';
 import { handleAliasMenuRequest } from '#modules/telegram-bot/handlers/tenant/alias-menu.action';
-// 👈 ایمپورت هندلرهای جدید نام مستعار
 import {
   handleAliasUserSelect,
   handleAliasEnterPrompt,
@@ -81,7 +80,17 @@ import {
   handleDoEndChallenge
 } from '#modules/telegram-bot/handlers/challenge/end-challenge.action';
 import { handleSendLeaderboardRequest } from '#modules/telegram-bot/handlers/challenge/send-leaderboard.action';
-import { handleViewLoggedTimesRequest } from '#modules/telegram-bot/handlers/challenge/view-logged-times.action';
+
+import {
+  handleViewLoggedTimesRequest,
+  handleViewUserLogsRequest
+} from '#modules/telegram-bot/handlers/challenge/view-logged-times.action';
+
+// 👈 ایمپورت اکشن‌های جدید رتبه‌بندی روزانه
+import {
+  handleDailyLeaderboardMenuRequest,
+  handleDailyLeaderboardDayRequest
+} from '#modules/telegram-bot/handlers/challenge/daily-leaderboard.action';
 
 export class BotService {
   private bot: Telegraf;
@@ -201,6 +210,20 @@ export class BotService {
       /^view_logged_times_([a-f\d]{24})$/i,
       handleViewLoggedTimesRequest
     );
+    this.bot.action(
+      /^view_user_logs_([a-f\d]{24})_(\d+)$/i,
+      handleViewUserLogsRequest
+    );
+
+    // 👈 اکشن‌های ثبت شده برای رتبه‌بندی روزانه
+    this.bot.action(
+      /^daily_leaderboard_menu_([a-f\d]{24})$/i,
+      handleDailyLeaderboardMenuRequest
+    );
+    this.bot.action(
+      /^daily_leaderboard_day_([a-f\d]{24})_(\d+)$/i,
+      handleDailyLeaderboardDayRequest
+    );
 
     // حذف، شروع و ویرایش چالش
     this.bot.action(
@@ -249,7 +272,7 @@ export class BotService {
       handleDoAddMember
     );
 
-    // ادمین‌ها و नाम مستعار
+    // ادمین‌ها و نام مستعار
     this.bot.action(/^action_add_admin_(.+)$/, handleAddAdminRequest);
     this.bot.action(
       /^promote_sub_([a-f\d]{24})_(\d+)$/i,
@@ -261,8 +284,6 @@ export class BotService {
     this.bot.action(/^do_suspend_([a-f\d]{24})_(\d+)$/i, handleDoSuspend);
     this.bot.action(/^action_unsuspend_user_(.+)$/, handleUnsuspendUserRequest);
     this.bot.action(/^do_unsuspend_([a-f\d]{24})_(\d+)$/i, handleDoUnsuspend);
-
-    // 👈 اکشن‌های نام مستعار
     this.bot.action(
       /^action_alias_menu_([a-f\d]{24})$/i,
       handleAliasMenuRequest

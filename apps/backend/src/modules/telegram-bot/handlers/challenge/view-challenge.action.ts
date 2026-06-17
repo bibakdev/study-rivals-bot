@@ -41,7 +41,6 @@ export const handleViewChallengeRequest = async (
       { daysLogged: number; totalMinutes: number }
     >();
 
-    // 👈 استخراج دیتای لاگ‌ها هم برای چالش‌های در حال اجرا و هم تکمیل شده
     if (challenge.status === 'active' || challenge.status === 'completed') {
       const timeLogs = await TimeLogModel.aggregate([
         { $match: { challengeId: challenge._id } },
@@ -74,9 +73,7 @@ export const handleViewChallengeRequest = async (
 
     let teamsInfoText = '';
 
-    // 👈 لاجیک اختصاصی وضعیت تکمیل شده (نمایش آمار نهایی)
     if (challenge.status === 'completed') {
-      // محاسبه مجموع زمان هر تیم
       const teamStats = challenge.teams.map((team) => {
         const teamTotal = team.members.reduce((sum, memberId) => {
           return sum + (logsMap.get(memberId)?.totalMinutes || 0);
@@ -84,7 +81,6 @@ export const handleViewChallengeRequest = async (
         return { ...team, teamTotal };
       });
 
-      // مرتب‌سازی تیم‌ها از بیشترین ساعت به کمترین جهت یافتن برنده
       teamStats.sort((a, b) => b.teamTotal - a.teamTotal);
 
       const winnerTeam =
@@ -104,7 +100,6 @@ export const handleViewChallengeRequest = async (
         if (team.members.length === 0) {
           teamsInfoText += `  بدون عضو\n`;
         } else {
-          // مرتب‌سازی اعضای داخل تیم بر اساس ساعت ثبت شده
           const membersWithStats = team.members
             .map((memberId) => {
               const user = usersInfo.find((u) => u.telegramId === memberId);
@@ -120,14 +115,12 @@ export const handleViewChallengeRequest = async (
             .sort((a, b) => b.totalMinutes - a.totalMinutes);
 
           membersWithStats.forEach((member) => {
-            teamsInfoText += `  👤 ${member.name}: ${formatMinutesToTime(member.totalMinutes)} (در ${member.daysLogged} روز)\n`;
+            teamsInfoText += `   👤 ${member.name}: ${formatMinutesToTime(member.totalMinutes)} (در ${member.daysLogged} روز)\n`;
           });
         }
         teamsInfoText += '\n';
       });
-    }
-    // لاجیک حالت‌های دیگر (اجرا نشده و در حال اجرا)
-    else {
+    } else {
       teamsInfoText = '\n📊 **تیم‌ها و نفرات:**\n\n';
       if (challenge.teams.length === 0) {
         teamsInfoText += 'هیچ تیمی ثبت نشده است.\n';
@@ -145,9 +138,9 @@ export const handleViewChallengeRequest = async (
 
               if (challenge.status === 'active') {
                 const daysLogged = logsMap.get(memberId)?.daysLogged || 0;
-                teamsInfoText += `  👤 ${name} - (تایم ثبت شده: ${daysLogged} روز)\n`;
+                teamsInfoText += `   👤 ${name} - (تایم ثبت شده: ${daysLogged} روز)\n`;
               } else {
-                teamsInfoText += `  👤 ${name}\n`;
+                teamsInfoText += `   👤 ${name}\n`;
               }
             });
           }
@@ -159,7 +152,6 @@ export const handleViewChallengeRequest = async (
     const tenantId = challenge.tenantId.toString();
     const inlineKeyboard = [];
 
-    // دکمه‌های متغیر بر اساس وضعیت
     if (challenge.status === 'pending') {
       inlineKeyboard.push(
         [
@@ -209,10 +201,16 @@ export const handleViewChallengeRequest = async (
             '⏱ مشاهده تایم‌های زده شده',
             `view_logged_times_${challengeId}`
           )
+        ],
+        // 👈 دکمه جدید اضافه شد
+        [
+          Markup.button.callback(
+            '📅 رتبه‌بندی تایم‌های روزانه',
+            `daily_leaderboard_menu_${challengeId}`
+          )
         ]
       );
     } else if (challenge.status === 'completed') {
-      // در حالت تکمیل شده، فقط قابلیت حذف چالش باقی می‌ماند
       inlineKeyboard.push([
         Markup.button.callback('🗑 حذف چالش', `delete_challenge_${challengeId}`)
       ]);
