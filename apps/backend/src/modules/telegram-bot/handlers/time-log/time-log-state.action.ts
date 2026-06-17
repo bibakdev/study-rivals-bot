@@ -7,6 +7,7 @@ import { TimeLogModel } from '#modules/time-log/time-log.model';
 import { ChallengeModel } from '#modules/challenge/challenge.model';
 import { TenantModel } from '#modules/tenant/tenant.model';
 import { UserModel } from '#modules/auth/user.model';
+import { TenantMemberModel } from '#modules/tenant/tenant-member.model';
 import {
   parseTimeStringToMinutes,
   formatMinutesToTime
@@ -44,7 +45,6 @@ export const handleTimeLogStateText = async (
 
     const { challengeId, dayIndex } = state.payload as any;
 
-    // ۱. پارس کردن زمان ارسالی
     const minutesToLog = parseTimeStringToMinutes(text);
     if (minutesToLog === null || minutesToLog < 0) {
       await ctx.reply(
@@ -59,7 +59,6 @@ export const handleTimeLogStateText = async (
       return true;
     }
 
-    // ⛔ گارد امنیتی نهایی: در صورت پایان یافتن چالش، پیام اخطار ارسال شده و کاربر از State خارج می‌شود
     if (challenge.status !== 'active') {
       await ctx.reply(
         '⚠️ این چالش پایان یافته است و دیگر امکان ثبت یا ویرایش زمان در آن وجود ندارد.',
@@ -80,14 +79,12 @@ export const handleTimeLogStateText = async (
       return true;
     }
 
-    // ۲. محاسبه تاریخ روز
     const targetDateMs =
       challenge.startDate.getTime() + dayIndex * 24 * 60 * 60 * 1000;
     const targetDate = new Date(targetDateMs);
     const { jd, jm } = jalaali.toJalaali(targetDate);
     const dateLabel = `${jd} ${PERSIAN_MONTHS[jm - 1]}`;
 
-    // ۳. آماده‌سازی و محاسبه جمع کل
     let currentTotal = 0;
     let oldMinutes = 0;
 
@@ -108,7 +105,6 @@ export const handleTimeLogStateText = async (
       currentTotal = minutesToLog;
     }
 
-    // گارد امنیتی ۲۰ ساعت در روز
     const MAX_MINUTES_PER_DAY = 20 * 60;
     if (currentTotal > MAX_MINUTES_PER_DAY) {
       await ctx.reply(
@@ -117,7 +113,6 @@ export const handleTimeLogStateText = async (
       return true;
     }
 
-    // ۴. آپدیت در دیتابیس
     if (existingLog) {
       existingLog.minutes = currentTotal;
       await existingLog.save();
@@ -133,7 +128,6 @@ export const handleTimeLogStateText = async (
 
     await BotStateModel.deleteOne({ telegramId });
 
-    // ۵. اطلاع‌رسانی ربات
     const successMsg =
       state.action === 'LOG_TIME_ADD'
         ? `✅ زمان **${formatMinutesToTime(minutesToLog)}** با موفقیت به روز ${dayIndex + 1} اضافه شد.\n⏱ مجموع زمان امروز: **${formatMinutesToTime(currentTotal)}**`
@@ -163,13 +157,21 @@ export const handleTimeLogStateText = async (
       reply_markup: { inline_keyboard: inlineKeyboard }
     });
 
-    // ۶. ارسال به تاپیک گروه و بازسازی رتبه‌بندی
     const tenant = await TenantModel.findById(challenge.tenantId).lean();
     if (tenant && tenant.chatId) {
       const user = await UserModel.findOne({ telegramId }).lean();
-      const userName = user
-        ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`
-        : 'کاربر';
+      const membership = await TenantMemberModel.findOne({
+        tenantId: challenge.tenantId,
+        telegramId
+      }).lean();
+
+      // 👈 اولویت با نام مستعار
+      let userName = 'کاربر';
+      if (membership?.alias) {
+        userName = membership.alias;
+      } else if (user) {
+        userName = `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`;
+      }
 
       const actionText =
         state.action === 'LOG_TIME_ADD'
@@ -185,38 +187,32 @@ export const handleTimeLogStateText = async (
       const sendOptions: any = { parse_mode: 'Markdown' };
       if (tenant.topicId) sendOptions.message_thread_id = tenant.topicId;
 
-      // الف) حذف جداکننده قبلی
       if (challenge.lastDividerMessageId) {
         await ctx.telegram
           .deleteMessage(tenant.chatId, challenge.lastDividerMessageId)
           .catch(() => {});
       }
 
-      // ب) حذف رتبه‌بندی قبلی
       if (challenge.lastLeaderboardMessageId) {
         await ctx.telegram
           .deleteMessage(tenant.chatId, challenge.lastLeaderboardMessageId)
           .catch(() => {});
       }
 
-      // ج) ارسال لاگ جدید
       await ctx.telegram
         .sendMessage(tenant.chatId, notificationMsg, sendOptions)
         .catch(() => {});
 
-      // د) ارسال جداکننده جدید
       const dividerMsg = await ctx.telegram
         .sendMessage(tenant.chatId, '➖➖➖➖➖➖➖➖➖➖', sendOptions)
         .catch(() => null);
 
-      // هـ) ارسال رتبه‌بندی جدید
       const leaderboardStr = await generateLeaderboardText(challenge._id);
       if (leaderboardStr) {
         const sentLbMsg = await ctx.telegram
           .sendMessage(tenant.chatId, leaderboardStr, sendOptions)
           .catch(() => null);
 
-        // و) ذخیره آیدی پیام‌های جدید
         if (dividerMsg) challenge.lastDividerMessageId = dividerMsg.message_id;
         if (sentLbMsg)
           challenge.lastLeaderboardMessageId = sentLbMsg.message_id;

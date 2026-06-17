@@ -3,6 +3,7 @@
 import { ChallengeModel } from '#modules/challenge/challenge.model';
 import { TimeLogModel } from '#modules/time-log/time-log.model';
 import { UserModel } from '#modules/auth/user.model';
+import { TenantMemberModel } from '#modules/tenant/tenant-member.model';
 import { formatMinutesToTime } from '#modules/time-log/utils/time-parser.util';
 import mongoose from 'mongoose';
 
@@ -17,7 +18,13 @@ export const generateLeaderboardText = async (
   }).lean();
 
   const allMemberIds = challenge.teams.flatMap((t) => t.members);
+
+  // واکشی همزمان اطلاعات اصلی و اطلاعات مستأجر (برای نام مستعار)
   const usersInfo = await UserModel.find({
+    telegramId: { $in: allMemberIds }
+  }).lean();
+  const tenantMembers = await TenantMemberModel.find({
+    tenantId: challenge.tenantId,
     telegramId: { $in: allMemberIds }
   }).lean();
 
@@ -29,10 +36,18 @@ export const generateLeaderboardText = async (
       const userLogs = timeLogs.filter((log) => log.telegramId === memberId);
       const userTotal = userLogs.reduce((sum, log) => sum + log.minutes, 0);
       totalMinutes += userTotal;
+
       const user = usersInfo.find((u) => u.telegramId === memberId);
-      const name = user
-        ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`
-        : 'کاربر';
+      const membership = tenantMembers.find((m) => m.telegramId === memberId);
+
+      // 👈 اولویت با نام مستعار است
+      let name = 'کاربر';
+      if (membership?.alias) {
+        name = membership.alias;
+      } else if (user) {
+        name = `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`;
+      }
+
       return { name, minutes: userTotal };
     });
     return { name: team.name, totalMinutes, memberScores };

@@ -6,10 +6,10 @@ import { BotStateModel } from '#modules/telegram-bot/models/bot-state.model';
 import { TargetModel } from '#modules/target/target.model';
 import { ChallengeModel } from '#modules/challenge/challenge.model';
 import { UserModel } from '#modules/auth/user.model';
+import { TenantMemberModel } from '#modules/tenant/tenant-member.model';
 import { logger } from '#utils/logger';
 import { parsePersianDate } from '#modules/challenge/utils/date-parser.util';
 
-// تابع کمکی برای تبدیل دقیقه به فرمت ساعت و دقیقه (مثلاً 90 دقیقه -> 1:30)
 const formatMinutesToTime = (minutes?: number): string => {
   if (minutes === undefined || minutes === null) return 'نامشخص';
   const hrs = Math.floor(minutes / 60);
@@ -33,7 +33,6 @@ export const handleChallengeStateText = async (
     const payload = state.payload as any;
     const tenantId = payload.tenantId;
 
-    // پردازش تغییر نام تیم
     if (state.action === 'EDIT_TEAM_NAME') {
       const { challengeId, teamIndex } = payload;
       const newName = text.trim();
@@ -45,9 +44,7 @@ export const handleChallengeStateText = async (
         return true;
       }
 
-      // آپدیت نام تیم در دیتابیس
       const challenge = await ChallengeModel.findById(challengeId);
-
       if (!challenge || !challenge.teams[teamIndex]) {
         await ctx.reply('❌ چالش یا تیم مورد نظر یافت نشد.');
         await BotStateModel.deleteOne({ telegramId });
@@ -57,7 +54,6 @@ export const handleChallengeStateText = async (
       challenge.teams[teamIndex].name = newName;
       await challenge.save();
 
-      // خروج از وضعیت
       await BotStateModel.deleteOne({ telegramId });
 
       const inlineKeyboard = [
@@ -91,10 +87,8 @@ export const handleChallengeStateText = async (
       return true;
     }
 
-    // گام ۱ به ۲: دریافت تاریخ و پرسش مدت زمان
     if (state.action === 'ADD_CHALLENGE_DATE') {
       const parsedDate = parsePersianDate(text);
-
       if (!parsedDate.isValid) {
         await ctx.reply(`❌ ${parsedDate.error}`);
         return true;
@@ -130,7 +124,6 @@ export const handleChallengeStateText = async (
       return true;
     }
 
-    // گام ۲ به ۳: دریافت مدت زمان و پرسش تعداد گروه‌ها
     if (state.action === 'ADD_CHALLENGE_DURATION') {
       const duration = parseInt(text, 10);
       if (isNaN(duration) || duration <= 0) {
@@ -144,9 +137,9 @@ export const handleChallengeStateText = async (
       const targetCount = targets.length;
 
       if (targetCount === 0) {
-        await BotStateModel.deleteOne({ telegramId }); // خروج خودکار
+        await BotStateModel.deleteOne({ telegramId });
         await ctx.reply(
-          '⚠️ **هیچ تارگتی یافت نشد!**\nدر این گروه هنوز هیچ کاربری تارگت خود را ثبت نکرده است. لطفاً ابتدا کاربران تارگت‌های خود را مشخص کنند.'
+          '⚠️ **هیچ تارگتی یافت نشد!**\nدر این گروه هنوز هیچ کاربری تارگت خود را ثبت نکرده است.'
         );
         return true;
       }
@@ -180,11 +173,10 @@ export const handleChallengeStateText = async (
       return true;
     }
 
-    // گام نهایی: دریافت تعداد تیم‌ها، ساخت چالش و توزیع نفرات
     if (state.action === 'ADD_CHALLENGE_TEAMS') {
       let teamCount = parseInt(text, 10);
       if (isNaN(teamCount) || teamCount <= 0) {
-        teamCount = 2; // پیش‌فرض
+        teamCount = 2;
       }
 
       const targets = await TargetModel.find({
@@ -194,9 +186,8 @@ export const handleChallengeStateText = async (
       const sortedTargets = targets.sort(
         (a, b) => b.dailyMinutes - a.dailyMinutes
       );
-
       const teamStats = Array.from({ length: teamCount }, (_, i) => ({
-        name: `گروه ${String.fromCharCode(65 + i)}`, // A, B, C...
+        name: `گروه ${String.fromCharCode(65 + i)}`,
         members: [] as number[],
         totalMinutes: 0
       }));
@@ -216,7 +207,6 @@ export const handleChallengeStateText = async (
         name: t.name,
         members: t.members
       }));
-
       const startDate = new Date(payload.startDate);
       const durationDays = payload.durationDays;
       const endDate = new Date(
@@ -244,6 +234,10 @@ export const handleChallengeStateText = async (
       const usersInfo = await UserModel.find({
         telegramId: { $in: allUserIds }
       }).lean();
+      const tenantMembers = await TenantMemberModel.find({
+        tenantId: new mongoose.Types.ObjectId(tenantId),
+        telegramId: { $in: allUserIds }
+      }).lean();
 
       for (const teamStat of teamStats) {
         const formattedTotal = formatMinutesToTime(teamStat.totalMinutes);
@@ -251,16 +245,25 @@ export const handleChallengeStateText = async (
 
         for (const memberId of teamStat.members) {
           const user = usersInfo.find((u) => u.telegramId === memberId);
+          const membership = tenantMembers.find(
+            (m) => m.telegramId === memberId
+          );
           const rawTarget = targets.find((t) => t.telegramId === memberId);
-          const name = user ? user.firstName : 'کاربر';
-          const targetValue = formatMinutesToTime(rawTarget?.dailyMinutes);
 
+          // 👈 اولویت نام مستعار
+          let name = 'کاربر';
+          if (membership?.alias) {
+            name = membership.alias;
+          } else if (user) {
+            name = `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`;
+          }
+
+          const targetValue = formatMinutesToTime(rawTarget?.dailyMinutes);
           reportMessage += `👤 ${name} - تارگت: ${targetValue}\n`;
         }
         reportMessage += '\n';
       }
 
-      // 👈 ارسال گزارش و اضافه کردن دکمه "بازگشت به لیست اجرا نشده"
       await ctx.reply(reportMessage, {
         parse_mode: 'Markdown',
         reply_markup: {

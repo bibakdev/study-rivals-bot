@@ -5,9 +5,9 @@ import { ChallengeModel } from '#modules/challenge/challenge.model';
 import { TenantModel } from '#modules/tenant/tenant.model';
 import { TargetModel } from '#modules/target/target.model';
 import { UserModel } from '#modules/auth/user.model';
+import { TenantMemberModel } from '#modules/tenant/tenant-member.model';
 import { logger } from '#utils/logger';
 
-// تابع کمکی تبدیل دقیقه به ساعت و دقیقه
 const formatMinutesToTime = (minutes?: number): string => {
   if (minutes === undefined || minutes === null) return 'نامشخص';
   const hrs = Math.floor(minutes / 60);
@@ -21,7 +21,6 @@ export const handleSendTeamsToGroupRequest = async (
   try {
     const challengeId = ctx.match[1];
 
-    // واکشی اطلاعات چالش
     const challenge = await ChallengeModel.findById(challengeId).lean();
     if (!challenge) {
       await ctx
@@ -30,7 +29,6 @@ export const handleSendTeamsToGroupRequest = async (
       return;
     }
 
-    // واکشی اطلاعات گروه (برای گرفتن chatId و topicId)
     const tenant = await TenantModel.findById(challenge.tenantId).lean();
     if (!tenant || !tenant.chatId) {
       await ctx
@@ -41,7 +39,6 @@ export const handleSendTeamsToGroupRequest = async (
       return;
     }
 
-    // واکشی تارگت‌ها و نام‌های کاربری اعضای تیم
     const allMemberIds = challenge.teams.flatMap((t) => t.members);
     const targets = await TargetModel.find({
       telegramId: { $in: allMemberIds },
@@ -51,8 +48,11 @@ export const handleSendTeamsToGroupRequest = async (
     const usersInfo = await UserModel.find({
       telegramId: { $in: allMemberIds }
     }).lean();
+    const tenantMembers = await TenantMemberModel.find({
+      tenantId: challenge.tenantId,
+      telegramId: { $in: allMemberIds }
+    }).lean();
 
-    // ساخت پیام ارسالی
     let message = `📣 **اعلام گروه‌بندی چالش**\n\n`;
     message += `📅 **تاریخ شروع:** ${challenge.startDateText}\n`;
     message += `⏳ **مدت زمان:** ${challenge.durationDays} روز\n\n`;
@@ -64,11 +64,19 @@ export const handleSendTeamsToGroupRequest = async (
       const teamMembersText = team.members
         .map((memberId) => {
           const user = usersInfo.find((u) => u.telegramId === memberId);
+          const membership = tenantMembers.find(
+            (m) => m.telegramId === memberId
+          );
           const target = targets.find((t) => t.telegramId === memberId);
 
-          const name = user
-            ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`
-            : 'کاربر';
+          // 👈 اولویت با نام مستعار
+          let name = 'کاربر';
+          if (membership?.alias) {
+            name = membership.alias;
+          } else if (user) {
+            name = `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`;
+          }
+
           const targetValue = target?.dailyMinutes || 0;
           teamTotalMinutes += targetValue;
 
@@ -81,16 +89,13 @@ export const handleSendTeamsToGroupRequest = async (
       message += teamMembersText ? teamMembersText + '\n\n' : 'بدون عضو\n\n';
     });
 
-    // آماده‌سازی آپشن‌های ارسال پیام (ارسال به تاپیک در صورت وجود)
     const sendOptions: any = { parse_mode: 'Markdown' };
     if (tenant.topicId) {
       sendOptions.message_thread_id = tenant.topicId;
     }
 
-    // ارسال پیام به گروه
     await ctx.telegram.sendMessage(tenant.chatId, message, sendOptions);
 
-    // اعلام موفقیت به کاربر
     await ctx
       .answerCbQuery('✅ اطلاعات تیم‌ها با موفقیت در گروه ارسال شد.', {
         show_alert: true

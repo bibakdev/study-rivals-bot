@@ -4,11 +4,11 @@ import { Context, Markup } from 'telegraf';
 import { ChallengeModel } from '#modules/challenge/challenge.model';
 import { TenantModel } from '#modules/tenant/tenant.model';
 import { UserModel } from '#modules/auth/user.model';
+import { TenantMemberModel } from '#modules/tenant/tenant-member.model';
 import { TimeLogModel } from '#modules/time-log/time-log.model';
 import { formatMinutesToTime } from '#modules/time-log/utils/time-parser.util';
 import { logger } from '#utils/logger';
 
-// ۱. هندلر نمایش پیام تاییدیه (پرسش از ادمین)
 export const handleEndChallengePrompt = async (
   ctx: Context & { match: RegExpExecArray }
 ): Promise<void> => {
@@ -45,7 +45,7 @@ export const handleEndChallengePrompt = async (
               [
                 Markup.button.callback(
                   '❌ خیر، انصراف',
-                  `view_challenge_${challengeId}` // بازگشت به جزئیات همان چالش
+                  `view_challenge_${challengeId}`
                 )
               ]
             ]
@@ -61,14 +61,12 @@ export const handleEndChallengePrompt = async (
   }
 };
 
-// ۲. هندلر انجام قطعی عملیات خاتمه و ارسال گزارش در گروه
 export const handleDoEndChallenge = async (
   ctx: Context & { match: RegExpExecArray }
 ): Promise<void> => {
   try {
     const challengeId = ctx.match[1];
 
-    // ۱. آپدیت وضعیت چالش در دیتابیس
     const challenge = await ChallengeModel.findByIdAndUpdate(
       challengeId,
       { $set: { status: 'completed' } },
@@ -84,7 +82,6 @@ export const handleDoEndChallenge = async (
 
     await ctx.answerCbQuery('✅ چالش با موفقیت خاتمه یافت.').catch(() => {});
 
-    // ۲. جمع‌آوری داده‌ها برای ارسال گزارش در گروه
     const tenant = await TenantModel.findById(challenge.tenantId).lean();
 
     if (tenant && tenant.chatId) {
@@ -104,17 +101,29 @@ export const handleDoEndChallenge = async (
       const usersInfo = await UserModel.find({
         telegramId: { $in: allMemberIds }
       }).lean();
+      const tenantMembers = await TenantMemberModel.find({
+        tenantId: challenge.tenantId,
+        telegramId: { $in: allMemberIds }
+      }).lean();
 
-      // محاسبه آمار تیم‌ها و مرتب‌سازی از بیشترین به کمترین
       const teamStats = challenge.teams
         .map((team) => {
           let teamTotal = 0;
           const membersWithStats = team.members
             .map((memberId) => {
               const user = usersInfo.find((u) => u.telegramId === memberId);
-              const name = user
-                ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`
-                : 'کاربر';
+              const membership = tenantMembers.find(
+                (m) => m.telegramId === memberId
+              );
+
+              // 👈 اولویت نام مستعار
+              let name = 'کاربر';
+              if (membership?.alias) {
+                name = membership.alias;
+              } else if (user) {
+                name = `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`;
+              }
+
               const stats = logsMap.get(memberId) || {
                 daysLogged: 0,
                 totalMinutes: 0
@@ -133,7 +142,6 @@ export const handleDoEndChallenge = async (
           ? teamStats[0]
           : null;
 
-      // ۳. ساخت پیام گزارش نهایی با خط جداکننده
       const sendOptions: any = { parse_mode: 'Markdown' };
       if (tenant.topicId) sendOptions.message_thread_id = tenant.topicId;
 
@@ -161,16 +169,14 @@ export const handleDoEndChallenge = async (
         reportMsg += `\n`;
       });
 
-      // ارسال پیام گزارش اصلی
       await ctx.telegram
         .sendMessage(tenant.chatId, reportMsg, sendOptions)
         .catch((err) => {
           logger.error('Failed to send challenge end report to group:', err);
         });
 
-      // ۴. ارسال پیام جداگانه تبریک به نفر برتر تیم برنده
       if (winnerTeam && winnerTeam.membersWithStats.length > 0) {
-        const topUser = winnerTeam.membersWithStats[0]; // چون قبلاً مرتب شده است، نفر اول دارای بیشترین ساعت است
+        const topUser = winnerTeam.membersWithStats[0];
         if (topUser.totalMinutes > 0) {
           const congratsMsg =
             `🎉 **تبریک ویژه!** 🎉\n\n` +
@@ -184,7 +190,6 @@ export const handleDoEndChallenge = async (
       }
     }
 
-    // ۵. تغییر وضعیت در پنل ادمین
     await ctx
       .editMessageText(
         '✅ چالش متوقف شد و گزارش نهایی در گروه ارسال گردید.\n\nهم‌اکنون این چالش در لیست چالش‌های تکمیل شده قرار دارد.',

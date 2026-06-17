@@ -126,6 +126,12 @@ export const handleSelectTenant = async (
             text: '✅ رفع تعلیق',
             callback_data: `action_unsuspend_user_${tenantId}`
           }
+        ],
+        [
+          {
+            text: '🏷 ثبت نام مستعار',
+            callback_data: `action_alias_menu_${tenantId}`
+          }
         ]
       );
     }

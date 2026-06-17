@@ -7,4 +7,5 @@ export interface TenantMember {
   telegramId: number;
   tenantRole: TenantRole;
   isSuspended: boolean;
+  alias?: string | null; // 👈 فیلد نام مستعار اضافه شد
 }

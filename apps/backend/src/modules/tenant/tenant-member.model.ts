@@ -8,6 +8,7 @@ export interface ITenantMemberDocument extends Document {
   telegramId: number;
   tenantRole: TenantRole;
   isSuspended: boolean;
+  alias?: string | null; // 👈 فیلد جدید
   createdAt: Date;
   updatedAt: Date;
 }
@@ -35,6 +36,10 @@ const tenantMemberSchema = new Schema<ITenantMemberDocument>(
       type: Boolean,
       default: false,
       required: true
+    },
+    alias: {
+      type: String,
+      default: null // 👈 مقدار پیش‌فرض
     }
   },
   {
@@ -43,7 +48,6 @@ const tenantMemberSchema = new Schema<ITenantMemberDocument>(
   }
 );
 
-// 👑 ایجاد ایندکس ترکیبی یکتا (Unique Compound Index)
 tenantMemberSchema.index({ telegramId: 1, tenantId: 1 }, { unique: true });
 
 export const TenantMemberModel = model<ITenantMemberDocument>(

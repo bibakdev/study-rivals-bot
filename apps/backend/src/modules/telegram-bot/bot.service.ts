@@ -23,7 +23,7 @@ import { handleManageGroupsRequest } from '#modules/telegram-bot/handlers/tenant
 import { handleBackToMain } from '#modules/telegram-bot/handlers/tenant/back-to-main.action';
 import { handleLeaveGroup } from '#modules/telegram-bot/handlers/tenant/leave-group.action';
 
-// Admin & Suspension
+// Admin & Suspension & Alias
 import { handleAddAdminRequest } from '#modules/telegram-bot/handlers/tenant/add-admin.action';
 import { handlePromoteSubAdmin } from '#modules/telegram-bot/handlers/tenant/promote-admin.action';
 import { handleRemoveAdminRequest } from '#modules/telegram-bot/handlers/tenant/remove-admin.action';
@@ -32,6 +32,13 @@ import { handleSuspendUserRequest } from '#modules/telegram-bot/handlers/tenant/
 import { handleDoSuspend } from '#modules/telegram-bot/handlers/tenant/do-suspend.action';
 import { handleUnsuspendUserRequest } from '#modules/telegram-bot/handlers/tenant/unsuspend-user.action';
 import { handleDoUnsuspend } from '#modules/telegram-bot/handlers/tenant/do-unsuspend.action';
+import { handleAliasMenuRequest } from '#modules/telegram-bot/handlers/tenant/alias-menu.action';
+// 👈 ایمپورت هندلرهای جدید نام مستعار
+import {
+  handleAliasUserSelect,
+  handleAliasEnterPrompt,
+  handleAliasDelete
+} from '#modules/telegram-bot/handlers/tenant/alias-manage.action';
 
 // Target Handlers
 import { handleSetTargetRequest } from '#modules/telegram-bot/handlers/target/set-target.action';
@@ -69,8 +76,6 @@ import {
   handleDoAddMember
 } from '#modules/telegram-bot/handlers/challenge/add-team-member.action';
 import { handleSendTeamsToGroupRequest } from '#modules/telegram-bot/handlers/challenge/send-teams.action';
-
-// 👈 اکشن‌های چالش در حال اجرا و تاییدیه جدید جایگزین شد
 import {
   handleEndChallengePrompt,
   handleDoEndChallenge
@@ -182,7 +187,7 @@ export class BotService {
       handleSendTeamsToGroupRequest
     );
 
-    // 👈 اکشن‌های چالش در حال اجرا (ویرایش شده برای تاییدیه خاتمه)
+    // اکشن‌های چالش در حال اجرا
     this.bot.action(/^end_challenge_([a-f\d]{24})$/i, handleEndChallengePrompt);
     this.bot.action(
       /^confirm_end_challenge_([a-f\d]{24})$/i,
@@ -244,7 +249,7 @@ export class BotService {
       handleDoAddMember
     );
 
-    // ادمین‌ها
+    // ادمین‌ها و नाम مستعار
     this.bot.action(/^action_add_admin_(.+)$/, handleAddAdminRequest);
     this.bot.action(
       /^promote_sub_([a-f\d]{24})_(\d+)$/i,
@@ -252,12 +257,28 @@ export class BotService {
     );
     this.bot.action(/^action_remove_admin_(.+)$/, handleRemoveAdminRequest);
     this.bot.action(/^demote_sub_([a-f\d]{24})_(\d+)$/i, handleDemoteSubAdmin);
-
-    // تعلیق و رفع تعلیق
     this.bot.action(/^action_suspend_user_(.+)$/, handleSuspendUserRequest);
     this.bot.action(/^do_suspend_([a-f\d]{24})_(\d+)$/i, handleDoSuspend);
     this.bot.action(/^action_unsuspend_user_(.+)$/, handleUnsuspendUserRequest);
     this.bot.action(/^do_unsuspend_([a-f\d]{24})_(\d+)$/i, handleDoUnsuspend);
+
+    // 👈 اکشن‌های نام مستعار
+    this.bot.action(
+      /^action_alias_menu_([a-f\d]{24})$/i,
+      handleAliasMenuRequest
+    );
+    this.bot.action(
+      /^action_set_alias_prompt_([a-f\d]{24})_(\d+)$/i,
+      handleAliasUserSelect
+    );
+    this.bot.action(
+      /^action_enter_alias_([a-f\d]{24})_(\d+)$/i,
+      handleAliasEnterPrompt
+    );
+    this.bot.action(
+      /^action_delete_alias_([a-f\d]{24})_(\d+)$/i,
+      handleAliasDelete
+    );
 
     // هندلر خارج شدن کاربران
     this.bot.on('left_chat_member', handleLeaveGroup);
