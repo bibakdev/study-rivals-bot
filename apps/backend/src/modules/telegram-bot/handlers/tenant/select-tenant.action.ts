@@ -78,7 +78,15 @@ export const handleSelectTenant = async (
 
     const inlineKeyboard = [];
 
-    // اضافه شدن دکمه‌های تعلیق و رفع تعلیق به همراه ادمین‌ها
+    // 👈 اضافه شدن دکمه "ثبت تارگت" برای همه کاربران (مستقل از نقش)
+    inlineKeyboard.push([
+      {
+        text: '🎯 ثبت تارگت',
+        callback_data: `action_set_target_${tenantId}`
+      }
+    ]);
+
+    // اضافه شدن دکمه‌های تعلیق و رفع تعلیق به همراه ادمین‌ها (فقط برای ادمین اصلی و مادر)
     if (systemRole === 'main_admin' || systemRole === 'mother') {
       inlineKeyboard.push(
         [

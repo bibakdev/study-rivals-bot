@@ -1,3 +1,5 @@
+// apps/backend/src/modules/telegram-bot/handlers/onboarding/onboarding.router.ts
+
 import { Context } from 'telegraf';
 import { message } from 'telegraf/filters';
 import { env } from '#config/env';
@@ -6,6 +8,7 @@ import { logger } from '#utils/logger';
 import { handleMotherAuth } from './mother-auth.action';
 import { handleLicenseReservation } from './license-bind.action';
 import { handleFailedAttempt } from './attempt-limit.action';
+import { handleSaveTargetText } from '../target/save-target.action';
 
 export const handleBotOnboardingText = async (ctx: Context): Promise<void> => {
   if (!ctx.has(message('text')) || ctx.chat?.type !== 'private') return;
@@ -26,6 +29,14 @@ export const handleBotOnboardingText = async (ctx: Context): Promise<void> => {
       );
       return;
     }
+
+    // 👈 ۱. بررسی State-based برای دریافت پیام‌های تارگت
+    const isTargetHandled = await handleSaveTargetText(
+      ctx,
+      telegramId,
+      rawText
+    );
+    if (isTargetHandled) return; // اگر پیام مربوط به سیستم استیت‌دار بود، فرآیند متوقف شود
 
     const normalizedInput = rawText.replace(/[-\s]/g, '').toUpperCase();
     const normalizedMotherCode = env.MOTHER_SECRET_CODE.replace(

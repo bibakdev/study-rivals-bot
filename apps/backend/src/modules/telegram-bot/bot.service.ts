@@ -23,6 +23,13 @@ import { handleDoSuspend } from '#modules/telegram-bot/handlers/tenant/do-suspen
 import { handleUnsuspendUserRequest } from '#modules/telegram-bot/handlers/tenant/unsuspend-user.action';
 import { handleDoUnsuspend } from '#modules/telegram-bot/handlers/tenant/do-unsuspend.action';
 
+// ایمپورت هندلرهای تارگت
+import { handleSetTargetRequest } from '#modules/telegram-bot/handlers/target/set-target.action';
+import { handleSelectChallengeRequest } from '#modules/telegram-bot/handlers/target/select-challenge.action';
+import { handleDeleteTargetRequest } from '#modules/telegram-bot/handlers/target/delete-target.action';
+import { handleEditTargetRequest } from '#modules/telegram-bot/handlers/target/edit-target.action';
+import { handleCancelTargetRequest } from '#modules/telegram-bot/handlers/target/cancel-target.action'; // 👈 هندلر جدید
+
 export class BotService {
   private bot: Telegraf;
 
@@ -51,11 +58,33 @@ export class BotService {
     this.bot.use(rateLimit(rateLimitConfig));
     this.bot.start(startCommand);
     this.bot.action('action_generate_license', handleGenerateLicense);
-    this.bot.action(/^select_tenant_(.+)$/, handleSelectTenant);
+    this.bot.action(/^select_tenant_([a-f\d]{24})$/i, handleSelectTenant);
     this.bot.action('action_manage_groups', handleManageGroupsRequest);
     this.bot.action('action_add_to_group', handleAddGroupRequest);
     this.bot.action('action_my_groups', handleMyGroupsRequest);
     this.bot.action('action_back_to_main', handleBackToMain);
+
+    // اکشن‌های مربوط به مدیریت تارگت
+    this.bot.action(
+      /^action_set_target_([a-f\d]{24})$/i,
+      handleSetTargetRequest
+    );
+    this.bot.action(
+      /^action_select_challenge_([a-f\d]{24})_(.+)$/i,
+      handleSelectChallengeRequest
+    );
+    this.bot.action(
+      /^action_delete_target_([a-f\d]{24})$/i,
+      handleDeleteTargetRequest
+    );
+    this.bot.action(
+      /^action_edit_target_([a-f\d]{24})$/i,
+      handleEditTargetRequest
+    );
+    this.bot.action(
+      /^action_cancel_target_([a-f\d]{24})$/i,
+      handleCancelTargetRequest
+    ); // 👈 ثبت دکمه انصراف
 
     // ادمین‌ها
     this.bot.action(/^action_add_admin_(.+)$/, handleAddAdminRequest);
