@@ -59,6 +59,27 @@ export const handleTimeLogStateText = async (
       return true;
     }
 
+    // ⛔ گارد امنیتی نهایی: در صورت پایان یافتن چالش، پیام اخطار ارسال شده و کاربر از State خارج می‌شود
+    if (challenge.status !== 'active') {
+      await ctx.reply(
+        '⚠️ این چالش پایان یافته است و دیگر امکان ثبت یا ویرایش زمان در آن وجود ندارد.',
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                Markup.button.callback(
+                  '🔙 بازگشت به پنل',
+                  `select_tenant_${challenge.tenantId}`
+                )
+              ]
+            ]
+          }
+        }
+      );
+      await BotStateModel.deleteOne({ telegramId });
+      return true;
+    }
+
     // ۲. محاسبه تاریخ روز
     const targetDateMs =
       challenge.startDate.getTime() + dayIndex * 24 * 60 * 60 * 1000;
@@ -66,7 +87,7 @@ export const handleTimeLogStateText = async (
     const { jd, jm } = jalaali.toJalaali(targetDate);
     const dateLabel = `${jd} ${PERSIAN_MONTHS[jm - 1]}`;
 
-    // ۳. محاسبه جمع کل
+    // ۳. آماده‌سازی و محاسبه جمع کل
     let currentTotal = 0;
     let oldMinutes = 0;
 

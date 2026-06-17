@@ -34,7 +34,32 @@ export const handleSelectDayAction = async (
     if (!telegramId) return;
 
     const challenge = await ChallengeModel.findById(challengeId).lean();
-    if (!challenge) return;
+    if (!challenge) {
+      await ctx.editMessageText('❌ چالش یافت نشد.').catch(() => {});
+      return;
+    }
+
+    // ⛔ گارد امنیتی: جلوگیری از ورود به چالش‌های خاتمه‌یافته (از طریق دکمه‌های قدیمی)
+    if (challenge.status !== 'active') {
+      await ctx
+        .editMessageText(
+          '⚠️ این چالش به پایان رسیده است و دیگر امکان ثبت یا ویرایش زمان در آن وجود ندارد.',
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  Markup.button.callback(
+                    '🔙 بازگشت به پنل',
+                    `select_tenant_${challenge.tenantId}`
+                  )
+                ]
+              ]
+            }
+          }
+        )
+        .catch(() => {});
+      return;
+    }
 
     // محاسبه تاریخ دقیق این روز خاص
     const targetDateMs =

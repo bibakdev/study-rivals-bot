@@ -36,7 +36,32 @@ export const handlePromptTimeAction = async (
     if (!telegramId) return;
 
     const challenge = await ChallengeModel.findById(challengeId).lean();
-    if (!challenge) return;
+    if (!challenge) {
+      await ctx.editMessageText('❌ چالش یافت نشد.').catch(() => {});
+      return;
+    }
+
+    // ⛔ گارد امنیتی ثانویه
+    if (challenge.status !== 'active') {
+      await ctx
+        .editMessageText(
+          '⚠️ این چالش به پایان رسیده است و دیگر امکان ثبت یا ویرایش زمان در آن وجود ندارد.',
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  Markup.button.callback(
+                    '🔙 بازگشت به پنل',
+                    `select_tenant_${challenge.tenantId}`
+                  )
+                ]
+              ]
+            }
+          }
+        )
+        .catch(() => {});
+      return;
+    }
 
     // ثبت وضعیت انتظار برای دریافت متن
     await BotStateModel.findOneAndUpdate(
