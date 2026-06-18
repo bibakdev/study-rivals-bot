@@ -1,22 +1,24 @@
+/* apps/frontend/app/globals.css */
+
 @import 'tailwindcss';
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --border: #e5e7eb;
+  --background: #000000;
+  --foreground: #ffffff;
+  --border: rgba(255, 255, 255, 0.1);
 }
 
 .dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
-  --border: #262626;
+  --background: #000000;
+  --foreground: #ffffff;
+  --border: rgba(255, 255, 255, 0.1);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --border: #262626;
+    --background: #000000;
+    --foreground: #ffffff;
+    --border: rgba(255, 255, 255, 0.1);
   }
 }
 
@@ -44,4 +46,32 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+}
+
+/* انیمیشن چرخش معکوس برای حلقه‌های لودینگ */
+@keyframes spin-reverse {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+.animate-spin-reverse {
+  animation: spin-reverse 2.5s linear infinite;
+}
+
+/* انیمیشن حرکت نوار پیشرفت */
+@keyframes loading-bar {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.animate-loading-bar {
+  animation: loading-bar 1.5s ease-in-out infinite;
 }
