@@ -3,6 +3,7 @@
 export * from './dtos/auth.dto';
 export * from './dtos/tenant-member.dto';
 export * from './dtos/challenge.dto';
+export * from './dtos/leaderboard.dto'; // ثبت قرارداد جدید رتبه‌بندی برای کل مونو‌ریپو
 
 export * from './models/user.types';
 export * from './models/tenant-member.types';

@@ -3,18 +3,22 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CalendarDays, Swords, Users, User as UserIcon } from 'lucide-react';
+import {
+  CalendarDays,
+  Swords,
+  Users,
+  User as UserIcon,
+  RefreshCw
+} from 'lucide-react';
 import { cn } from '@utils/cn';
+import type { ActiveLeaderboardDto } from 'shared-types';
 
-// ==========================================
-// کامپوننت کمکی: انیمیشن شمارش اعداد زمان
-// ==========================================
 const AnimatedTime = ({ minutes }: { minutes: number }) => {
   const [current, setCurrent] = useState(0);
 
   useEffect(() => {
     let startTimestamp: number | null = null;
-    const duration = 1500; // مدت زمان انیمیشن (۱.۵ ثانیه)
+    const duration = 1500;
 
     const step = (timestamp: number) => {
       if (!startTimestamp) startTimestamp = timestamp;
@@ -36,72 +40,20 @@ const AnimatedTime = ({ minutes }: { minutes: number }) => {
   return `${hrs}:${mins.toString().padStart(2, '0')}`;
 };
 
-// ==========================================
-// شبیه‌سازی تایپ‌های دریافتی از بک‌اند
-// ==========================================
-interface ChallengeMetaData {
-  startDate: string;
-  endDate: string;
-  durationDays: number;
-  currentDay: number;
+// 👈 اضافه شدن پراپس‌های رفرش به اینترفیس
+interface LeaderboardTabProps {
+  data: ActiveLeaderboardDto;
+  onRefresh: () => void;
+  isRefreshing: boolean;
 }
 
-interface UserScore {
-  id: number;
-  name: string;
-  minutes: number;
-  avatar?: string;
-}
-
-interface TeamData {
-  id: string;
-  name: string;
-  color: 'blue' | 'red';
-  totalMinutes: number;
-  members: UserScore[];
-}
-
-export function LeaderboardTab() {
-  const [metaData, setMetaData] = useState<ChallengeMetaData | null>(null);
-  const [teams, setTeams] = useState<TeamData[] | null>(null);
+export function LeaderboardTab({
+  data,
+  onRefresh,
+  isRefreshing
+}: LeaderboardTabProps) {
+  const { challenge: metaData, teams } = data;
   const [barWidths, setBarWidths] = useState<[number, number]>([0, 0]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setMetaData({
-        startDate: '۱۵ فروردین',
-        endDate: '۲۵ فروردین',
-        durationDays: 10,
-        currentDay: 4
-      });
-
-      setTeams([
-        {
-          id: 'team_a',
-          name: 'آبی‌پوشان',
-          color: 'blue',
-          totalMinutes: 1450,
-          members: [
-            { id: 1, name: 'علی اکبری', minutes: 840 },
-            { id: 2, name: 'سارا', minutes: 210 },
-            { id: 3, name: 'رضا حسینی', minutes: 400 }
-          ]
-        },
-        {
-          id: 'team_b',
-          name: 'طوفان سرخ',
-          color: 'red',
-          totalMinutes: 1320,
-          members: [
-            { id: 4, name: 'مینا', minutes: 120 },
-            { id: 5, name: 'امید فرزانه', minutes: 700 },
-            { id: 6, name: 'نیما', minutes: 500 }
-          ]
-        }
-      ]);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     if (teams && teams.length >= 2) {
@@ -133,7 +85,6 @@ export function LeaderboardTab() {
     return <span className="text-xs font-bold text-gray-500">{rank}</span>;
   };
 
-  // 👈 محاسبه ایندکس گروه برنده (0 برای تیم اول، 1 برای تیم دوم، -1 برای حالت مساوی)
   const winningTeamIndex =
     teams && teams.length >= 2
       ? teams[0].totalMinutes > teams[1].totalMinutes
@@ -149,13 +100,35 @@ export function LeaderboardTab() {
       <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[150vw] h-[40vh] bg-blue-600/15 rounded-[100%] blur-[80px] pointer-events-none" />
       <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-[150vw] h-[40vh] bg-red-600/15 rounded-[100%] blur-[80px] pointer-events-none" />
 
+      {/* 👈 دکمه رفرش شناور (Floating Refresh Button) */}
+      <div className="absolute top-2 left-4 z-50">
+        <button
+          onClick={onRefresh}
+          disabled={isRefreshing}
+          className={cn(
+            'flex items-center justify-center p-2.5 rounded-full bg-white/[0.03] border border-white/10 backdrop-blur-md shadow-lg transition-all',
+            isRefreshing
+              ? 'opacity-70 cursor-not-allowed'
+              : 'hover:bg-white/[0.08] active:scale-95'
+          )}
+          title="به‌روزرسانی جدول"
+        >
+          <RefreshCw
+            className={cn(
+              'w-4 h-4 text-gray-300',
+              isRefreshing && 'animate-spin text-blue-400'
+            )}
+          />
+        </button>
+      </div>
+
       {/* هدر و تایمر */}
       <div className="relative z-10 flex flex-col items-center mb-5 space-y-4">
         {metaData ? (
           <div className="flex items-center justify-center gap-2.5 px-5 py-2 rounded-full bg-white/[0.03] border border-white/10 backdrop-blur-md shadow-[0_4px_20px_rgba(0,0,0,0.3)] animate-in fade-in slide-in-from-top-4 duration-500">
             <CalendarDays className="w-4 h-4 text-gray-400" />
             <span className="text-[11px] font-medium text-gray-300">
-              {metaData.startDate} تا {metaData.endDate}
+              {metaData.startDateText} تا {metaData.endDateText}
             </span>
             <span className="w-1 h-1 rounded-full bg-gray-500" />
             <span className="text-[11px] font-bold text-gray-200">
@@ -183,9 +156,7 @@ export function LeaderboardTab() {
       {teams && teams.length >= 2 && (
         <div className="relative z-10 w-full max-w-2xl mx-auto mb-6 px-1 animate-in fade-in slide-in-from-bottom-6 duration-700 mt-2">
           <div className="flex justify-between items-end mb-2 px-1">
-            {/* 👈 مشخصات تیم اول (آبی) */}
             <div className="flex flex-col items-start relative">
-              {/* انیمیشن آتش برای تیم برنده */}
               {winningTeamIndex === 0 && (
                 <div className="absolute -top-7 right-0 text-xl animate-bounce drop-shadow-[0_0_10px_rgba(255,165,0,0.8)] animate-in zoom-in duration-500">
                   🔥
@@ -207,9 +178,7 @@ export function LeaderboardTab() {
               </div>
             </div>
 
-            {/* 👈 مشخصات تیم دوم (قرمز) */}
             <div className="flex flex-col items-end relative">
-              {/* انیمیشن آتش برای تیم برنده */}
               {winningTeamIndex === 1 && (
                 <div className="absolute -top-7 left-0 text-xl animate-bounce drop-shadow-[0_0_10px_rgba(255,165,0,0.8)] animate-in zoom-in duration-500">
                   🔥
@@ -270,7 +239,7 @@ export function LeaderboardTab() {
               >
                 <div
                   className={cn(
-                    'flex flex-col items-center justify-center py-3 px-2 border-b border-white/5 relative',
+                    'flex flex-col items-center justify-center py-3 px-2 border-b border-white/10 relative',
                     teamStyles.bgHeader
                   )}
                 >
@@ -278,7 +247,7 @@ export function LeaderboardTab() {
                     <Users className={cn('w-4 h-4', teamStyles.textTitle)} />
                     <h3
                       className={cn(
-                        'text-xs font-bold tracking-wide truncate max-w-[90px]',
+                        'text-sm font-bold tracking-wide truncate max-w-[100px]',
                         teamStyles.textTitle
                       )}
                     >
@@ -305,7 +274,7 @@ export function LeaderboardTab() {
 
                     return (
                       <div
-                        key={member.id}
+                        key={member.telegramId}
                         className={cn(
                           'flex items-center gap-2 p-2 rounded-xl transition-all duration-300',
                           isFirst
@@ -322,6 +291,10 @@ export function LeaderboardTab() {
                               src={member.avatar}
                               alt={member.name}
                               className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display =
+                                  'none';
+                              }}
                             />
                           ) : (
                             <UserIcon className="w-3.5 h-3.5 text-gray-400" />

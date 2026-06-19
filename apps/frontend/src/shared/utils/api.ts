@@ -8,7 +8,6 @@ import axios, {
 import type { TelegramWebApp } from '@providers/TelegramProvider';
 import { useTenantStore } from '@stores/useTenantStore';
 
-// قراردادهای پاسخی که از سمت بک‌اند می‌آید
 export interface ApiSuccessResponse<T> {
   success: true;
   data: T;
@@ -22,20 +21,21 @@ export interface ApiErrorResponse {
   };
 }
 
-const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+// 🛡️ تغییر حیاتی: اگر متغیر محیطی خالی بود، از مسیر نسبی ('') استفاده کن
+// با این کار Axios تمام درخواست‌ها را به همان آدرس ngrok فرانت‌اَند شلیک می‌کند
+const baseURL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export const apiClient = axios.create({
   baseURL,
   headers: {
     'Content-Type': 'application/json'
   },
-  timeout: 10000 // 👈 هندل کردن Edge Case: جلوگیری از معلق ماندن ریکوئست در صورت کندی سرور
+  timeout: 10000
 });
 
 // اینترسپتور درخواست
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // ۱. تزریق هدر Authorization (اطلاعات امنیتی کاربر تلگرام)
     if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
       const initData = (window.Telegram.WebApp as TelegramWebApp).initData;
       if (initData) {
@@ -43,8 +43,6 @@ apiClient.interceptors.request.use(
       }
     }
 
-    // ۲. 👈 استخراج شناسه گروه از استور سراسری و تزریق به هدر
-    // به دلیل استفاده از getState، این کد کاملاً با React خارج از کانتکست (مانند توابع خام) سازگار است
     const tenantId = useTenantStore.getState().tenantId;
     if (tenantId) {
       config.headers['X-Tenant-Id'] = tenantId;
@@ -58,21 +56,15 @@ apiClient.interceptors.request.use(
 // اینترسپتور پاسخ
 apiClient.interceptors.response.use(
   (response: AxiosResponse<ApiSuccessResponse<unknown>>) => {
-    // 👈 اصل DRY: ریکوئست‌های ما مستقیماً ساختار data را برمی‌گردانند.
-    // نیازی نیست در کانتینرها مدام response.data.data بنویسیم.
     return response.data.data as any;
   },
   (error: AxiosError<ApiErrorResponse>) => {
-    // 👈 مدیریت Edge Cases: سرور داون شده، تایم‌اوت، یا خطای ساختاری غیر منتظره
     const fallbackError = {
       code: 'NETWORK_ERROR',
       message: 'ارتباط با سرور برقرار نشد. لطفاً اینترنت خود را بررسی کنید.'
     };
 
-    // اگر رسپانس استانداردی از بک‌اند ما برگشته باشد آن را می‌گیریم، در غیر اینصورت خطای Fallback
     const standardError = error.response?.data?.error || fallbackError;
-
-    // اینجا فقط آبجکت خطا را ریجکت می‌کنیم تا React Query مستقیماً به message دسترسی داشته باشد
     return Promise.reject(standardError);
   }
 );
