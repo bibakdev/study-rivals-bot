@@ -7,15 +7,9 @@ import { useTelegram } from '@hooks/useTelegram';
 import { useTenantStore } from '@stores/useTenantStore';
 import { useGetMyTenants } from '@hooks/useGetMyTenants';
 import { useGetActiveLeaderboard } from '@features/leaderboard/hooks/useGetActiveLeaderboard';
-import {
-  User,
-  ChevronDown,
-  Shield,
-  Users,
-  RefreshCw,
-  Calendar
-} from 'lucide-react';
+import { ChevronDown, Shield, Users, RefreshCw, Calendar } from 'lucide-react';
 import { cn } from '@utils/cn';
+import { Avatar } from '@components/ui/Avatar'; // 👈 اضافه شد
 
 export function HomeHeader() {
   const { user } = useTelegram();
@@ -28,10 +22,8 @@ export function HomeHeader() {
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // وضعیت تاریخ برای جلوگیری از خطای Hydration در Next.js
   const [currentDate, setCurrentDate] = useState<string>('');
 
-  // 🗓️ محاسبه داینامیک تاریخ جاری و تبدیل آن به گاه‌شماری شاهنشاهی پس از Mount
   useEffect(() => {
     try {
       const parts = new Intl.DateTimeFormat('fa-IR', {
@@ -42,7 +34,6 @@ export function HomeHeader() {
         timeZone: 'Asia/Tehran'
       }).formatToParts(new Date());
 
-      // تابع تبدیل امن اعداد فارسی و عربی به انگلیسی
       const normalizeDigits = (str: string) => {
         const persian = /[\u06F0-\u06F9]/g;
         const arabic = /[\u0660-\u0669]/g;
@@ -59,11 +50,9 @@ export function HomeHeader() {
       const month = monthVal;
       const yearStr = normalizeDigits(yearVal);
 
-      // فیلتر کردن و استخراج فقط بخش عددی سال (برای جلوگیری از باگ عباراتی مثل " ه‍.ش.")
       const yearMatch = yearStr.match(/\d+/);
 
       if (day && month && yearMatch) {
-        // افزودن دقیق ۱۱۸۰ سال به سال شمسی جاری
         const imperialYear = parseInt(yearMatch[0], 10) + 1180;
         setCurrentDate(`${day} ${month} ${imperialYear}`);
       }
@@ -72,7 +61,6 @@ export function HomeHeader() {
     }
   }, []);
 
-  // منطق انتخاب هوشمند چالش پیش‌فرض
   useEffect(() => {
     if (tenants && tenants.length > 0 && !tenantId) {
       const privilegedGroup = tenants.find(
@@ -89,7 +77,6 @@ export function HomeHeader() {
     }
   }, [tenants, tenantId, setTenantId]);
 
-  // گارد بستن دراپ‌داون با کلیک بیرونی
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -104,28 +91,23 @@ export function HomeHeader() {
   }, []);
 
   const currentTenant = tenants?.find((t) => t.id === tenantId);
+  const userDisplayName = user?.first_name
+    ? `${user.first_name} ${user.last_name || ''}`.trim()
+    : 'کاربر مهمان';
 
   return (
     <header className="flex items-center justify-between py-3 px-4 mt-2 border-b border-white/[0.03] z-50">
-      {/* بخش راست: اطلاعات کاربر و دراپ‌داون */}
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10 flex items-center justify-center bg-white/5 shrink-0 shadow-md">
-          {user?.photo_url ? (
-            <img
-              src={user.photo_url}
-              alt={user.first_name}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <User className="w-5 h-5 text-gray-400" />
-          )}
-        </div>
+        {/* استفاده از کامپوننت هوشمند Avatar بجای تگ img خام */}
+        <Avatar
+          src={user?.photo_url}
+          name={userDisplayName}
+          className="w-10 h-10 text-sm border border-white/10 shadow-md"
+        />
 
         <div className="flex flex-col items-start gap-0.5">
           <span className="text-sm font-bold text-gray-200">
-            {user?.first_name
-              ? `${user.first_name} ${user.last_name || ''}`.trim()
-              : 'کاربر مهمان'}
+            {userDisplayName}
           </span>
 
           <div className="relative" ref={dropdownRef}>
@@ -152,7 +134,6 @@ export function HomeHeader() {
               />
             </button>
 
-            {/* دراپ‌داون لیست چالش‌ها */}
             {isDropdownOpen && tenants && tenants.length > 0 && (
               <div className="absolute right-0 mt-2 w-60 rounded-xl bg-gray-950/95 border border-white/10 backdrop-blur-2xl shadow-[0_10px_30px_rgba(0,0,0,0.8)] overflow-hidden z-50">
                 <div className="flex flex-col py-1 max-h-64 overflow-y-auto scrollbar-hide">
@@ -201,7 +182,6 @@ export function HomeHeader() {
         </div>
       </div>
 
-      {/* بخش چپ: دکمه رفرش و نمایش تاریخ */}
       <div className="flex items-center gap-2">
         {currentDate && (
           <div className="flex items-center gap-1 text-[10px] font-medium text-gray-400 bg-white/[0.02] border border-white/5 px-2 py-1 rounded-lg shadow-sm">

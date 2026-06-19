@@ -18,10 +18,22 @@ export const getWebAppMenuButton = (tenantId?: string) => {
   };
 };
 
-// ۱. کیبورد اصلی ربات (فقط دکمه مدیریت گروه‌ها)
+// ۱. کیبورد اصلی ربات (اضافه شدن دکمه مینی‌اپ در صدر کیبورد)
 export const getStartKeyboard = (role: 'mother' | 'user' | string) => {
-  const baseKeyboard = [
-    [{ text: '⚙️ مدیریت گروه‌ها', callback_data: 'action_manage_groups' }]
+  // استفاده از any[][] برای جلوگیری از خطای تایپ‌اسکریپت بخاطر تفاوت ساختار دکمه‌های web_app و callback_data
+  const baseKeyboard: any[][] = [
+    [
+      {
+        text: '📱 ورود به مینی‌اپ',
+        web_app: { url: env.MINI_APP_URL }
+      }
+    ],
+    [
+      {
+        text: '⚙️ مدیریت گروه‌ها',
+        callback_data: 'action_manage_groups'
+      }
+    ]
   ];
 
   // دکمه اختصاصی اکانت مادر همچنان حفظ می‌شود

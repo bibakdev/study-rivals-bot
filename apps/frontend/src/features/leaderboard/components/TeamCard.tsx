@@ -1,8 +1,11 @@
+// apps/frontend/src/features/leaderboard/components/TeamCard.tsx
+
 'use client';
 
-import { Users, User as UserIcon } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { cn } from '@utils/cn';
 import type { LeaderboardTeamDto } from 'shared-types';
+import { Avatar } from '@components/ui/Avatar'; // 👈 اضافه شد
 
 interface TeamCardProps {
   team: LeaderboardTeamDto;
@@ -109,17 +112,14 @@ export function TeamCard({ team, isArchived }: TeamCardProps) {
               <div className="flex items-center justify-center w-5 shrink-0">
                 {renderRankIcon(rank)}
               </div>
-              <div className="w-7 h-7 rounded-full overflow-hidden bg-gray-800 border border-white/10 shrink-0 flex items-center justify-center">
-                {member.avatar ? (
-                  <img
-                    src={member.avatar}
-                    alt={member.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <UserIcon className="w-3.5 h-3.5 text-gray-400" />
-                )}
-              </div>
+
+              {/* جایگزینی با آواتار هوشمند */}
+              <Avatar
+                src={member.avatar}
+                name={member.name}
+                className="w-7 h-7 text-[11px] border border-white/10"
+              />
+
               <div className="flex flex-col flex-1 min-w-0">
                 <span
                   className={cn(

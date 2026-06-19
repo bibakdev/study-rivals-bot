@@ -9,13 +9,11 @@ import {
 } from '#modules/tenant/tenant-member.model';
 import mongoose from 'mongoose';
 
-// تعریف اینترفیس اختصاصی برای خروجی لوله تجمیع جهت حذف any
 interface ITimeLogAggregationResult {
-  _id: number; // همان telegramId کاربر
+  _id: number;
   totalMinutes: number;
 }
 
-// تعریف اینترفیس خروجی متد سرویس
 export interface IActiveLeaderboardServiceResult {
   challenge: {
     id: string;
@@ -39,37 +37,29 @@ export interface IActiveLeaderboardServiceResult {
   }>;
 }
 
-/**
- * سرویس جامع محاسبات و استخراج رتبه‌بندی لحظه‌ای چالش فعال یا آخرین چالش تکمیل‌شده مستأجر
- * @param tenantId شناسه گروه تایید صلاحیت شده
- */
 export const getActiveChallengeLeaderboard = async (
   tenantId: string
 ): Promise<IActiveLeaderboardServiceResult | null> => {
   const tenantObjectId = new mongoose.Types.ObjectId(tenantId);
 
-  // ۱. تلاش برای واکشی چالش در حال اجرا (Active)
   let challenge = await ChallengeModel.findOne({
     tenantId: tenantObjectId,
     status: 'active'
   }).lean();
 
-  // 👈 گارد فلوبک: اگر چالش فعالی وجود نداشت، آخرین چالش تکمیل شده واکشی می‌شود
   if (!challenge) {
     challenge = await ChallengeModel.findOne({
       tenantId: tenantObjectId,
       status: 'completed'
     })
-      .sort({ endDate: -1 }) // مرتب‌سازی نزولی برای گرفتن آخرین چالش پایان‌یافته
+      .sort({ endDate: -1 })
       .lean();
   }
 
-  // 👈 اگر کماکان هیچ چالشی (نه فعال و نه تکمیل‌شده) یافت نشد، مقدار null بازگردانده می‌شود
   if (!challenge) {
     return null;
   }
 
-  // ۲. محاسبه دقیق روز فعلی چالش بر اساس زمان سرور (با اعمال گارد سقف مدت زمان)
   const now = Date.now();
   const startMs = challenge.startDate.getTime();
   const DAY_MS = 24 * 60 * 60 * 1000;
@@ -80,7 +70,6 @@ export const getActiveChallengeLeaderboard = async (
     Math.max(1, calculatedDay)
   );
 
-  // ۳. اجرای لوله تجمیع در سطح دیتابیس برای جمع زدن کل دقایق مطالعه چالش واکشی شده
   const timeLogsAggregation =
     await TimeLogModel.aggregate<ITimeLogAggregationResult>([
       {
@@ -101,7 +90,6 @@ export const getActiveChallengeLeaderboard = async (
     minutesMap.set(log._id, log.totalMinutes);
   });
 
-  // ۴. واکشی اطلاعات هویتی و اطلاعات درون‌گروهی کاربران حاضر در چالش
   const allMemberIds = challenge.teams.flatMap((t) => t.members);
 
   const [users, tenantMembers] = await Promise.all([
@@ -121,7 +109,6 @@ export const getActiveChallengeLeaderboard = async (
     tenantMembers.map((m) => [m.telegramId, m])
   );
 
-  // ۵. نگاشت و تجمیع داده‌های تیم‌ها
   const teamRecords = challenge.teams.map((team, index) => {
     let teamTotalMinutes = 0;
 
@@ -144,9 +131,8 @@ export const getActiveChallengeLeaderboard = async (
         telegramId: memberId,
         name: finalName,
         minutes: minutes,
-        avatar: user?.username
-          ? `https://t.me/i/userpic/1/${user.username}.jpg`
-          : null
+        // 👈 اینجا بجای فرستادن لینک فیک، null می‌فرستیم تا فرانت‌اند بصورت تمیز روی ساخت Initial Avatar سوییچ کند
+        avatar: null
       };
     });
 
