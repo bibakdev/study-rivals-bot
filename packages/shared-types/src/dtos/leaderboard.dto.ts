@@ -32,7 +32,6 @@ export const LeaderboardTeamSchema = z.object({
 
 /**
  * اسکیمای خلاصه وضعیت چالش فعال متناسب با نیازهای لایه فرانت‌اند مینی‌اپ
- * فیلدهای زمان در این لایه به صورت رشته مدیریت می‌شوند تا تداخل هیدراسیون و سریالایز JSON رخ ندهد.
  */
 export const ChallengeSummarySchema = z.object({
   id: z.string().min(1, 'شناسه چالش الزامی است.'),
@@ -48,11 +47,14 @@ export const ChallengeSummarySchema = z.object({
 
 /**
  * اسکیمای نهایی و جامع خروجی رتبه‌بندی فعال جهت مصرف در مینی‌اپ تلگرام
+ * 👈 اضافه شدن متد `.nullable()` برای پشتیبانی گارد سطح دیتابیس در زمان نصب تازه ربات (بدون هیچ چالش قبلی)
  */
-export const ActiveLeaderboardSchema = z.object({
-  challenge: ChallengeSummarySchema,
-  teams: z.array(LeaderboardTeamSchema)
-});
+export const ActiveLeaderboardSchema = z
+  .object({
+    challenge: ChallengeSummarySchema,
+    teams: z.array(LeaderboardTeamSchema)
+  })
+  .nullable();
 
 // استخراج تایپ‌های استاتیک برای استفاده در کامپایلر تایپ‌اسکریپت فرانت‌اند و بک‌اند
 export type LeaderboardMemberDto = z.infer<typeof LeaderboardMemberSchema>;

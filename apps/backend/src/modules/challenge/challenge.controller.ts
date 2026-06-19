@@ -5,8 +5,7 @@ import { TenantRequest } from '#core/middlewares/validateTenantAccess';
 import { getActiveChallengeLeaderboard } from '#modules/challenge/challenge.service';
 
 /**
- * کنترلر اختصاصی دریافت رتبه‌بندی لحظه‌ای چالش فعال مستأجر
- * این متد کاملاً با ساختار خطایابی متمرکز سیستم (errorHandler) سازگار است.
+ * کنترلر اختصاصی دریافت رتبه‌بندی رقابت فعال یا آخرین چالش تکمیل‌شده مستأجر
  */
 export const getActiveLeaderboard = async (
   req: TenantRequest,
@@ -14,7 +13,6 @@ export const getActiveLeaderboard = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // استخراج امن شناسه مستأجر که توسط میدل‌ور تایید صلاحیت شده و تزریق گردیده است
     const tenantId = req.tenantId;
 
     if (!tenantId) {
@@ -28,16 +26,15 @@ export const getActiveLeaderboard = async (
       return;
     }
 
-    // فراخوانی لایه سرویس بهینه محاسباتی فاز دوم
+    // فراخوانی لایه سرویس بهینه‌سازی شده فاز دوم
     const leaderboardData = await getActiveChallengeLeaderboard(tenantId);
 
-    // ارسال پاسخ صددرصد منطبق بر استاندارد API Response Envelope پروژه
+    // 👈 ارسال پاسخ منطبق بر استاندارد و پاک‌سازی گارد پرتاب خطای ۴۰۴ سخت‌گیرانه قبلی
     res.status(200).json({
       success: true,
       data: leaderboardData
     });
   } catch (error) {
-    // ارجاع مستقیم خطا به میدل‌ور errorHandler مرکزی بک‌اند
     next(error);
   }
 };

@@ -7,16 +7,15 @@ import {
   TenantMemberModel,
   ITenantMemberDocument
 } from '#modules/tenant/tenant-member.model';
-import { AppError } from '#utils/AppError';
 import mongoose from 'mongoose';
 
-// تعریف اینترفیس اختصاصی برای خروجی لوله تجمیع (Aggregation Pipeline) جهت حذف any
+// تعریف اینترفیس اختصاصی برای خروجی لوله تجمیع جهت حذف any
 interface ITimeLogAggregationResult {
   _id: number; // همان telegramId کاربر
   totalMinutes: number;
 }
 
-// تعریف اینترفیس خروجی متد سرویس منطبق بر نیازمندی‌های فاز اول قرارداد داده‌ها
+// تعریف اینترفیس خروجی متد سرویس
 export interface IActiveLeaderboardServiceResult {
   challenge: {
     id: string;
@@ -41,29 +40,36 @@ export interface IActiveLeaderboardServiceResult {
 }
 
 /**
- * سرویس جامع محاسبات و استخراج رتبه‌بندی لحظه‌ای چالش فعال مستأجر
- * @param tenantId شناسه گروه تایید صلاحیت شده توسط میدل‌ور
+ * سرویس جامع محاسبات و استخراج رتبه‌بندی لحظه‌ای چالش فعال یا آخرین چالش تکمیل‌شده مستأجر
+ * @param tenantId شناسه گروه تایید صلاحیت شده
  */
 export const getActiveChallengeLeaderboard = async (
   tenantId: string
-): Promise<IActiveLeaderboardServiceResult> => {
+): Promise<IActiveLeaderboardServiceResult | null> => {
   const tenantObjectId = new mongoose.Types.ObjectId(tenantId);
 
-  // ۱. واکشی اتمیک چالش در حال اجرا (Active) قفل شده روی مستأجر جهت جلوگیری از نشت داده‌ها
-  const challenge = await ChallengeModel.findOne({
+  // ۱. تلاش برای واکشی چالش در حال اجرا (Active)
+  let challenge = await ChallengeModel.findOne({
     tenantId: tenantObjectId,
     status: 'active'
   }).lean();
 
+  // 👈 گارد فلوبک: اگر چالش فعالی وجود نداشت، آخرین چالش تکمیل شده واکشی می‌شود
   if (!challenge) {
-    throw new AppError(
-      'در حال حاضر هیچ چالش فعالی برای این گروه در سیستم در حال اجرا نیست.',
-      404,
-      'ACTIVE_CHALLENGE_NOT_FOUND'
-    );
+    challenge = await ChallengeModel.findOne({
+      tenantId: tenantObjectId,
+      status: 'completed'
+    })
+      .sort({ endDate: -1 }) // مرتب‌سازی نزولی برای گرفتن آخرین چالش پایان‌یافته
+      .lean();
   }
 
-  // ۲. محاسبه دقیق روز فعلی چالش بر اساس زمان سرور (با اعمال گارد محافظتی سقف و کف روزها)
+  // 👈 اگر کماکان هیچ چالشی (نه فعال و نه تکمیل‌شده) یافت نشد، مقدار null بازگردانده می‌شود
+  if (!challenge) {
+    return null;
+  }
+
+  // ۲. محاسبه دقیق روز فعلی چالش بر اساس زمان سرور (با اعمال گارد سقف مدت زمان)
   const now = Date.now();
   const startMs = challenge.startDate.getTime();
   const DAY_MS = 24 * 60 * 60 * 1000;
@@ -74,7 +80,7 @@ export const getActiveChallengeLeaderboard = async (
     Math.max(1, calculatedDay)
   );
 
-  // ۳. اجرای لوله تجمیع (Aggregation Pipeline) بهینه‌شده در سطح دیتابیس برای جمع زدن کل دقایق مطالعه
+  // ۳. اجرای لوله تجمیع در سطح دیتابیس برای جمع زدن کل دقایق مطالعه چالش واکشی شده
   const timeLogsAggregation =
     await TimeLogModel.aggregate<ITimeLogAggregationResult>([
       {
@@ -90,13 +96,12 @@ export const getActiveChallengeLeaderboard = async (
       }
     ]);
 
-  // نگاشت خروجی تجمیع به ساختار مپ برای دسترسی پرفورمنسی با مرتبه زمانی O(1)
   const minutesMap = new Map<number, number>();
   timeLogsAggregation.forEach((log) => {
     minutesMap.set(log._id, log.totalMinutes);
   });
 
-  // ۴. واکشی همزمان اطلاعات هویتی و اطلاعات درون‌گروهی کاربران (پایان دادن به بحران پرفورمنسی N+1 Queries)
+  // ۴. واکشی اطلاعات هویتی و اطلاعات درون‌گروهی کاربران حاضر در چالش
   const allMemberIds = challenge.teams.flatMap((t) => t.members);
 
   const [users, tenantMembers] = await Promise.all([
@@ -116,7 +121,7 @@ export const getActiveChallengeLeaderboard = async (
     tenantMembers.map((m) => [m.telegramId, m])
   );
 
-  // ۵. ساختاربندی و تجمیع داده‌های تیم‌ها و اعمال الگوهای بیزینسی پروژه
+  // ۵. نگاشت و تجمیع داده‌های تیم‌ها
   const teamRecords = challenge.teams.map((team, index) => {
     let teamTotalMinutes = 0;
 
@@ -125,10 +130,8 @@ export const getActiveChallengeLeaderboard = async (
       const membership = membersMap.get(memberId);
       const minutes = minutesMap.get(memberId) || 0;
 
-      // جمع جبری کارکرد اعضا برای تجمیع نهایی ساعت تیمی
       teamTotalMinutes += minutes;
 
-      // 👑 اعمال مهندسی‌شده گارد اولویت نام مستعار (Alias Entry Guard)
       let finalName = 'کاربر عادی';
       if (membership?.alias) {
         finalName = membership.alias;
@@ -143,14 +146,12 @@ export const getActiveChallengeLeaderboard = async (
         minutes: minutes,
         avatar: user?.username
           ? `https://t.me/i/userpic/1/${user.username}.jpg`
-          : null // شبیه‌سازی ایمن ساختار آواتار فرانت بدون نشت داده
+          : null
       };
     });
 
-    // مرتب‌سازی دقیق اعضای داخلی تیم بر اساس بالاترین میزان مطالعه (نزولی)
     mappedMembers.sort((a, b) => b.minutes - a.minutes);
 
-    // تخصیص رنگ به صورت زوج-فرد متناسب با VS Progress Bar در فرانت‌اند (تیم اول آبی، تیم دوم قرمز)
     const color: 'blue' | 'red' = index === 0 ? 'blue' : 'red';
 
     return {
@@ -162,10 +163,8 @@ export const getActiveChallengeLeaderboard = async (
     };
   });
 
-  // مرتب‌سازی نهایی کل تیم‌های حاضر در چالش بر اساس مجموع کارکرد کل تیمی (نزولی)
   teamRecords.sort((a, b) => b.totalMinutes - a.totalMinutes);
 
-  // تخمین تاریخ پایان به عنوان فیلد کمکی متنی بر اساس داده‌های موجود
   const endDateText = `پایان رقابت (${challenge.durationDays} روزه)`;
 
   return {
