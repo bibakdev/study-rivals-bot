@@ -1,6 +1,8 @@
+// apps/frontend/src/features/leaderboard/components/LeaderboardTab.tsx
+
 'use client';
 
-import { RefreshCw, Trophy } from 'lucide-react';
+import { Trophy } from 'lucide-react';
 import { cn } from '@utils/cn';
 import type { ActiveLeaderboardDto } from 'shared-types';
 import { ChallengeHeader } from './ChallengeHeader';
@@ -17,7 +19,7 @@ interface LeaderboardTabProps {
 
 export function LeaderboardTab({
   data,
-  onRefresh,
+  onRefresh, // جهت جلوگیری از ارور تایپ‌اسکریپت در کانتینر اصلی حفظ شده‌اند
   isRefreshing,
   isArchived = false,
   onSwitchToWinner
@@ -40,31 +42,7 @@ export function LeaderboardTab({
         )}
       />
 
-      {/* دکمه رفرش شناور (فقط برای چالش فعال) */}
-      {!isArchived && (
-        <div className="absolute top-2 left-4 z-50">
-          <button
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            className={cn(
-              'flex items-center justify-center p-2.5 rounded-full bg-white/[0.03] border border-white/10 backdrop-blur-md shadow-lg transition-all',
-              isRefreshing
-                ? 'opacity-70 cursor-not-allowed'
-                : 'hover:bg-white/[0.08] active:scale-95'
-            )}
-            title="به‌روزرسانی جدول"
-          >
-            <RefreshCw
-              className={cn(
-                'w-4 h-4 text-gray-300',
-                isRefreshing && 'animate-spin text-blue-400'
-              )}
-            />
-          </button>
-        </div>
-      )}
-
-      {/* هدر اطلاعات چالش */}
+      {/* هدر اطلاعات چالش (دکمه RefreshCw از اینجا حذف شد) */}
       <ChallengeHeader metaData={metaData} isArchived={isArchived} />
 
       {/* نوار پیشرفت و تقابل تیم‌ها */}
