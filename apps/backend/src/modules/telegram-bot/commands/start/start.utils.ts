@@ -7,8 +7,9 @@ import {
 export const grantDashboardAccess = async (
   ctx: Context,
   welcomeMessage: string,
-  role: 'mother' | 'main_admin' | 'sub_admin' | 'user' | 'guest'
+  role: 'mother' | 'main_admin' | 'sub_admin' | 'user' | 'guest',
+  tenantId?: string // 👈 پارامتر جدید اضافه شد
 ): Promise<void> => {
-  await ctx.setChatMenuButton(getWebAppMenuButton());
+  await ctx.setChatMenuButton(getWebAppMenuButton(tenantId)); // 👈 تزریق شناسه
   await ctx.reply(welcomeMessage, { reply_markup: getStartKeyboard(role) });
 };

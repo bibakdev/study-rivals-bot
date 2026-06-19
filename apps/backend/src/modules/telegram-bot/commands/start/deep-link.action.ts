@@ -89,7 +89,8 @@ export const handleDeepLink = async (
       ctx,
       `🎉 خوش آمدید ${ctx.from?.first_name || 'کاربر'} عزیز!\nعضویت شما در چالش تأیید شد.\n\n` +
         `📱 **جهت ورود به اپلیکیشن، روی دکمه آبی‌رنگ (Open) کلیک کنید.**`,
-      actualRole as 'mother' | 'main_admin' | 'sub_admin' | 'user'
+      actualRole as 'mother' | 'main_admin' | 'sub_admin' | 'user',
+      tenantId // 👈 این متغیر را ارسال کنید تا دکمه Open لینک دقیق بگیرد
     );
   } catch (tgError: unknown) {
     logger.error('Failed to verify group membership:', tgError);

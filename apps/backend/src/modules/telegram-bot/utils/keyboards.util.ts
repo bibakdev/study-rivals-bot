@@ -2,11 +2,21 @@
 
 import { env } from '#config/env';
 
-export const getWebAppMenuButton = () => ({
-  type: 'web_app' as const,
-  text: 'Open',
-  web_app: { url: env.MINI_APP_URL }
-});
+export const getWebAppMenuButton = (tenantId?: string) => {
+  let finalUrl = env.MINI_APP_URL;
+
+  if (tenantId) {
+    const miniAppUrl = new URL(env.MINI_APP_URL);
+    miniAppUrl.searchParams.set('tenantId', tenantId);
+    finalUrl = miniAppUrl.toString();
+  }
+
+  return {
+    type: 'web_app' as const,
+    text: 'Open',
+    web_app: { url: finalUrl }
+  };
+};
 
 // ۱. کیبورد اصلی ربات (فقط دکمه مدیریت گروه‌ها)
 export const getStartKeyboard = (role: 'mother' | 'user' | string) => {
