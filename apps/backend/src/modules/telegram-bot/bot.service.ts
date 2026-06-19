@@ -59,7 +59,10 @@ import { handleCancelChallengeWizard } from '#modules/telegram-bot/handlers/chal
 import { handleManageGroupChallengesRequest } from '#modules/telegram-bot/handlers/challenge/manage-group-challenges.action';
 import { handleListGroupChallengesRequest } from '#modules/telegram-bot/handlers/challenge/list-group-challenges.action';
 import { handleViewChallengeRequest } from '#modules/telegram-bot/handlers/challenge/view-challenge.action';
-import { handleDeleteGroupChallengeRequest } from '#modules/telegram-bot/handlers/challenge/delete-challenge.action';
+import {
+  handleDeleteChallengePrompt,
+  handleDoDeleteChallenge
+} from '#modules/telegram-bot/handlers/challenge/delete-challenge.action';
 import { handleStartGroupChallengeRequest } from '#modules/telegram-bot/handlers/challenge/start-challenge.action';
 import { handleEditChallengeRequest } from '#modules/telegram-bot/handlers/challenge/edit-challenge.action';
 import { handleEditTeamRequest } from '#modules/telegram-bot/handlers/challenge/edit-team.action';
@@ -86,7 +89,7 @@ import {
   handleViewUserLogsRequest
 } from '#modules/telegram-bot/handlers/challenge/view-logged-times.action';
 
-// 👈 ایمپورت اکشن‌های جدید رتبه‌بندی روزانه
+// رتبه‌بندی روزانه
 import {
   handleDailyLeaderboardMenuRequest,
   handleDailyLeaderboardDayRequest
@@ -215,7 +218,7 @@ export class BotService {
       handleViewUserLogsRequest
     );
 
-    // 👈 اکشن‌های ثبت شده برای رتبه‌بندی روزانه
+    // اکشن‌های ثبت شده برای رتبه‌بندی روزانه
     this.bot.action(
       /^daily_leaderboard_menu_([a-f\d]{24})$/i,
       handleDailyLeaderboardMenuRequest
@@ -225,11 +228,16 @@ export class BotService {
       handleDailyLeaderboardDayRequest
     );
 
-    // حذف، شروع و ویرایش چالش
+    // 👈 دکمه‌های مربوط به حذف چالش (گام تاییدیه و گام اجرا)
     this.bot.action(
       /^delete_challenge_([a-f\d]{24})$/i,
-      handleDeleteGroupChallengeRequest
+      handleDeleteChallengePrompt
     );
+    this.bot.action(
+      /^confirm_delete_challenge_([a-f\d]{24})$/i,
+      handleDoDeleteChallenge
+    );
+
     this.bot.action(
       /^start_challenge_([a-f\d]{24})$/i,
       handleStartGroupChallengeRequest
