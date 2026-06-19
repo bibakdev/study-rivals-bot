@@ -1,3 +1,5 @@
+// apps/frontend/src/shared/providers/TelegramProvider.tsx
+
 'use client';
 
 import {
@@ -8,7 +10,6 @@ import {
   type ReactNode
 } from 'react';
 
-// تایپ‌ها دقیقاً مشابه قبل حفظ می‌شوند...
 export interface TelegramUser {
   id: number;
   is_bot?: boolean;
@@ -25,9 +26,11 @@ export interface TelegramWebApp {
   initDataUnsafe: { user?: TelegramUser };
   colorScheme: 'light' | 'dark';
   ready: () => void;
+  expand: () => void;
+  setHeaderColor: (color: string) => void;
+  setBackgroundColor: (color: string) => void;
   onEvent: (eventType: string, callback: () => void) => void;
   offEvent: (eventType: string, callback: () => void) => void;
-  // ... سایر فیلدها
 }
 
 declare global {
@@ -55,26 +58,38 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
       const app = window.Telegram.WebApp;
+
       app.ready();
+
+      // 👈 یکپارچه‌سازی رنگ هدر و فوتر بومی تلگرام با تم اپلیکیشن
+      try {
+        app.setHeaderColor('#030712');
+        app.setBackgroundColor('#030712');
+      } catch (error) {
+        console.warn('Failed to set Telegram theme colors', error);
+      }
+
       setWebApp(app);
       setIsReady(true);
 
-      // هندل کردن تغییرات تِم پلتفرم تلگرام به صورت لایو و جلوگیری از Memory Leak
       const handleThemeChange = () => {
-        // فورس آپدیت استیت برای اعمال تغییرات لایو
+        // اعمال مجدد در صورت تغییر تم تلگرام توسط کاربر
+        try {
+          app.setHeaderColor('#030712');
+          app.setBackgroundColor('#030712');
+        } catch (e) {}
+
         setWebApp({ ...window.Telegram!.WebApp });
       };
 
       app.onEvent('themeChanged', handleThemeChange);
 
-      // Cleanup function برای جلوگیری از Memory Leak
       return () => {
         app.offEvent('themeChanged', handleThemeChange);
       };
     }
   }, []);
 
-  // 👈 رفع مشکل Performance: جلوگیری از ساخته شدن مجدد آبجکت در رندرهای غیرمرتبط
   const contextValue = useMemo<TelegramContextType>(
     () => ({
       webApp,

@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Trophy, Crown, ArrowLeft, Users, Medal } from 'lucide-react';
 import { cn } from '@utils/cn';
 import type { ActiveLeaderboardDto } from 'shared-types';
@@ -17,21 +17,57 @@ interface WinnerViewProps {
 export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
   const { challenge: metaData, teams } = data;
 
-  // 🎵 افکت صوتی هنگام باز شدن صفحه
+  // رفرنس برای نگهداری فایل صوتی و وضعیتی برای بررسی اینکه آیا پخش شده یا خیر
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [hasPlayedAudio, setHasPlayedAudio] = useState(false);
+
   useEffect(() => {
-    const playCheerSound = async () => {
-      try {
-        const audio = new Audio('/sounds/cheer.mp3');
-        audio.volume = 0.6;
-        await audio.play();
-      } catch (error) {
-        console.warn('پخش خودکار صدا توسط مرورگر مسدود شد.', error);
-      }
+    // ۱. ایجاد لرزش (ویبره) موفقیت‌آمیز از طریق API بومی تلگرام
+    if (
+      typeof window !== 'undefined' &&
+      window.Telegram?.WebApp?.HapticFeedback
+    ) {
+      window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+    }
+
+    // ۲. مقداردهی اولیه فایل صوتی
+    const audio = new Audio('/sounds/cheer.mp3');
+    audio.volume = 0.6;
+    audioRef.current = audio;
+
+    // ۳. تلاش اولیه برای پخش (کار روی دسکتاپ یا زمانی که کاربر قبلاً با صفحه تعامل داشته)
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          // پخش موفقیت‌آمیز بود
+          setHasPlayedAudio(true);
+        })
+        .catch((error) => {
+          console.warn(
+            'Autoplay blocked by browser. Waiting for first interaction...',
+            error
+          );
+        });
+    }
+
+    // پاکسازی هنگام خروج از صفحه
+    return () => {
+      audio.pause();
+      audio.currentTime = 0;
     };
-    playCheerSound();
   }, []);
 
-  // پیدا کردن تیم برنده
+  // ۴. تابع باز کردن قفل صدا با اولین لمس/کلیک معتبر کاربر روی صفحه
+  const handleUserInteraction = () => {
+    if (!hasPlayedAudio && audioRef.current) {
+      const playPromise = audioRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => setHasPlayedAudio(true)).catch(() => {});
+      }
+    }
+  };
+
   const winnerTeam =
     teams && teams.length > 0
       ? teams.reduce((prev, current) =>
@@ -39,12 +75,10 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
         )
       : null;
 
-  // مرتب‌سازی اعضای تیم بر اساس بیشترین زمان به کمترین
   const sortedMembers = winnerTeam
     ? [...winnerTeam.members].sort((a, b) => b.minutes - a.minutes)
     : [];
 
-  // جدا کردن نفر اول (MVP) از بقیه اعضای تیم
   const topUser = sortedMembers.length > 0 ? sortedMembers[0] : null;
   const otherMembers = sortedMembers.slice(1);
 
@@ -55,7 +89,12 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
   };
 
   return (
-    <div className="relative w-full h-full flex flex-col overflow-y-auto overflow-x-hidden scrollbar-hide pb-28 px-4 pt-4 bg-[#030712] animate-in fade-in zoom-in-95 duration-700">
+    <div
+      // 👈 اضافه کردن رویدادهای کلیک و لمس به کل صفحه برای دور زدن محدودیت مرورگر
+      onClick={handleUserInteraction}
+      onTouchStart={handleUserInteraction}
+      className="relative w-full h-full flex flex-col overflow-y-auto overflow-x-hidden scrollbar-hide pb-28 px-4 pt-4 bg-[#030712] animate-in fade-in zoom-in-95 duration-700"
+    >
       {/* پترن گرید (شبکه خطوط نوری آبی) */}
       <div
         className="absolute inset-0 pointer-events-none opacity-20"
@@ -75,7 +114,7 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
       <Confetti />
 
       {/* هدر صفحه */}
-      <div className="relative z-10 flex flex-col items-center text-center mt-2 mb-4 space-y-1.5 shrink-0">
+      <div className="relative z-10 flex flex-col items-center text-center mt-2 mb-4 space-y-1.5 shrink-0 pointer-events-none">
         <h2 className="text-xl font-black tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-white to-blue-300 drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
           پایان رقابت و نتایج نهایی
         </h2>
@@ -89,12 +128,11 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
           {/* 🌟 بخش اختصاصی و ویژه MVP */}
           {topUser && topUser.minutes > 0 && (
             <div className="relative flex flex-col items-center justify-center p-4 rounded-3xl bg-gradient-to-b from-blue-600/20 to-blue-950/40 border border-blue-400/30 shadow-[0_0_30px_rgba(59,130,246,0.15)] backdrop-blur-md mt-6">
-              {/* جایگزینی آیکون با عکس واقعی تاج */}
-              <div className="absolute -top-4  animate-bounce duration-[3000ms] z-10">
+              <div className="absolute -top-8 animate-bounce duration-[3000ms] z-10">
                 <img
                   src="/imgs/crown.png"
                   alt="MVP Crown"
-                  className="w-16 h-16 object-contain drop-shadow-[0_8px_15px_rgba(250,204,21,0.6)]"
+                  className="w-14 h-14 object-contain drop-shadow-[0_8px_15px_rgba(250,204,21,0.6)]"
                 />
               </div>
 
@@ -110,7 +148,7 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
 
               <div className="flex items-center gap-1.5 text-[10px] font-bold text-yellow-300 mt-1 mb-2 bg-yellow-500/10 px-2.5 py-0.5 rounded-full border border-yellow-500/20">
                 <Trophy className="w-3 h-3" />
-                ارزشمندترین بازیکن
+                ارزشمندترین بازیکن (MVP)
               </div>
 
               <span className="text-sm font-mono font-bold text-blue-100 bg-[#0a0f1c]/80 px-4 py-1.5 rounded-lg border border-blue-500/40 shadow-inner">
@@ -219,7 +257,11 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
       {/* دکمه پایین صفحه */}
       <div className="relative z-10 w-full max-w-md mx-auto mt-4 px-1 shrink-0">
         <button
-          onClick={onSwitchToLeaderboard}
+          onClick={(e) => {
+            // توقف انتشار کلیک برای جلوگیری از تداخل
+            e.stopPropagation();
+            onSwitchToLeaderboard();
+          }}
           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600/10 border border-blue-500/30 hover:bg-blue-600/20 active:scale-[0.98] transition-all text-xs font-bold text-blue-200 shadow-[0_0_15px_rgba(59,130,246,0.15)] group"
         >
           دیدن رتبه‌بندی نهایی سایر تیم‌ها
