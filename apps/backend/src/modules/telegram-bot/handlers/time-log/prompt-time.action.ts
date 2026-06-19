@@ -27,7 +27,7 @@ export const handlePromptTimeAction = async (
   ctx: Context & { match: RegExpExecArray }
 ): Promise<void> => {
   try {
-    const actionType = ctx.match[1]; // 'add' یا 'edit'
+    const actionType = ctx.match[1];
     const challengeId = ctx.match[2];
     const dayIndex = parseInt(ctx.match[3], 10);
     const telegramId = ctx.from?.id;
@@ -41,7 +41,6 @@ export const handlePromptTimeAction = async (
       return;
     }
 
-    // ⛔ گارد امنیتی ثانویه
     if (challenge.status !== 'active') {
       await ctx
         .editMessageText(
@@ -63,7 +62,28 @@ export const handlePromptTimeAction = async (
       return;
     }
 
-    // ثبت وضعیت انتظار برای دریافت متن
+    // ⛔ گارد امنیتی
+    const isParticipating = challenge.teams.some((team) =>
+      team.members.includes(telegramId)
+    );
+    if (!isParticipating) {
+      await ctx
+        .editMessageText('⛔️ شما در تیم‌های این چالش حضور ندارید.', {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                Markup.button.callback(
+                  '🔙 بازگشت',
+                  `select_tenant_${challenge.tenantId}`
+                )
+              ]
+            ]
+          }
+        })
+        .catch(() => {});
+      return;
+    }
+
     await BotStateModel.findOneAndUpdate(
       { telegramId },
       {
@@ -75,7 +95,6 @@ export const handlePromptTimeAction = async (
       { upsert: true }
     );
 
-    // محاسبه تاریخ دقیق این روز و استخراج لاگ کاربر
     const targetDateMs =
       challenge.startDate.getTime() + dayIndex * 24 * 60 * 60 * 1000;
     const targetDate = new Date(targetDateMs);
@@ -107,7 +126,7 @@ export const handlePromptTimeAction = async (
               [
                 Markup.button.callback(
                   '❌ انصراف',
-                  `action_log_time_day_${challengeId}_${dayIndex}` // برگشت به روز انتخابی
+                  `action_log_time_day_${challengeId}_${dayIndex}`
                 )
               ]
             ]

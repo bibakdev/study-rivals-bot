@@ -79,6 +79,30 @@ export const handleTimeLogStateText = async (
       return true;
     }
 
+    // ⛔ گارد امنیتی نهایی
+    const isParticipating = challenge.teams.some((team) =>
+      team.members.includes(telegramId)
+    );
+    if (!isParticipating) {
+      await ctx.reply(
+        '⛔️ شما از تیم‌های این چالش حذف شده‌اید و دیگر امکان ثبت ساعت ندارید.',
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                Markup.button.callback(
+                  '🔙 بازگشت',
+                  `select_tenant_${challenge.tenantId}`
+                )
+              ]
+            ]
+          }
+        }
+      );
+      await BotStateModel.deleteOne({ telegramId });
+      return true;
+    }
+
     const targetDateMs =
       challenge.startDate.getTime() + dayIndex * 24 * 60 * 60 * 1000;
     const targetDate = new Date(targetDateMs);
@@ -165,7 +189,6 @@ export const handleTimeLogStateText = async (
         telegramId
       }).lean();
 
-      // 👈 اولویت با نام مستعار
       let userName = 'کاربر';
       if (membership?.alias) {
         userName = membership.alias;

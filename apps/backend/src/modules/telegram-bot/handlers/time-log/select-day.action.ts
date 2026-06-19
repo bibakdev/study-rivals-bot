@@ -39,7 +39,6 @@ export const handleSelectDayAction = async (
       return;
     }
 
-    // ⛔ گارد امنیتی: جلوگیری از ورود به چالش‌های خاتمه‌یافته (از طریق دکمه‌های قدیمی)
     if (challenge.status !== 'active') {
       await ctx
         .editMessageText(
@@ -61,7 +60,28 @@ export const handleSelectDayAction = async (
       return;
     }
 
-    // محاسبه تاریخ دقیق این روز خاص
+    // ⛔ گارد امنیتی
+    const isParticipating = challenge.teams.some((team) =>
+      team.members.includes(telegramId)
+    );
+    if (!isParticipating) {
+      await ctx
+        .editMessageText('⛔️ شما در تیم‌های این چالش حضور ندارید.', {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                Markup.button.callback(
+                  '🔙 بازگشت',
+                  `select_tenant_${challenge.tenantId}`
+                )
+              ]
+            ]
+          }
+        })
+        .catch(() => {});
+      return;
+    }
+
     const targetDateMs =
       challenge.startDate.getTime() + dayIndex * 24 * 60 * 60 * 1000;
     const targetDate = new Date(targetDateMs);
@@ -69,7 +89,6 @@ export const handleSelectDayAction = async (
     const { jd, jm } = jalaali.toJalaali(targetDate);
     const dateLabel = `${jd} ${PERSIAN_MONTHS[jm - 1]}`;
 
-    // پیدا کردن لاگ قبلی کاربر در این روز خاص
     const existingLog = await TimeLogModel.findOne({
       challengeId: challenge._id,
       telegramId,
