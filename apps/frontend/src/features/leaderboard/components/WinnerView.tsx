@@ -10,12 +10,12 @@ import {
   Medal,
   Target,
   CalendarDays
-} from 'lucide-react'; // 👈 اضافه شدن آیکون‌های جدید
+} from 'lucide-react';
 import { cn } from '@utils/cn';
 import type { ActiveLeaderboardDto } from 'shared-types';
 import { Avatar } from '@components/ui/Avatar';
 import { Confetti } from '@components/ui/Confetti';
-import { Accordion } from '@components/ui/Accordion'; // 👈 امپورت کامپوننت ساخته شده در گام قبل
+import { Accordion } from '@components/ui/Accordion';
 
 interface WinnerViewProps {
   data: Exclude<ActiveLeaderboardDto, null>;
@@ -25,12 +25,10 @@ interface WinnerViewProps {
 export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
   const { challenge: metaData, teams } = data;
 
-  // رفرنس برای نگهداری فایل صوتی و وضعیتی برای بررسی اینکه آیا پخش شده یا خیر
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [hasPlayedAudio, setHasPlayedAudio] = useState(false);
 
   useEffect(() => {
-    // ۱. ایجاد لرزش (ویبره) موفقیت‌آمیز از طریق API بومی تلگرام
     if (
       typeof window !== 'undefined' &&
       window.Telegram?.WebApp?.HapticFeedback
@@ -38,17 +36,14 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
       window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
     }
 
-    // ۲. مقداردهی اولیه فایل صوتی
     const audio = new Audio('/sounds/cheer.mp3');
     audio.volume = 0.6;
     audioRef.current = audio;
 
-    // ۳. تلاش اولیه برای پخش (کار روی دسکتاپ یا زمانی که کاربر قبلاً با صفحه تعامل داشته)
     const playPromise = audio.play();
     if (playPromise !== undefined) {
       playPromise
         .then(() => {
-          // پخش موفقیت‌آمیز بود
           setHasPlayedAudio(true);
         })
         .catch((error) => {
@@ -59,14 +54,12 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
         });
     }
 
-    // پاکسازی هنگام خروج از صفحه
     return () => {
       audio.pause();
       audio.currentTime = 0;
     };
   }, []);
 
-  // ۴. تابع باز کردن قفل صدا با اولین لمس/کلیک معتبر کاربر روی صفحه
   const handleUserInteraction = () => {
     if (!hasPlayedAudio && audioRef.current) {
       const playPromise = audioRef.current.play();
@@ -100,9 +93,9 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
     <div
       onClick={handleUserInteraction}
       onTouchStart={handleUserInteraction}
-      className="relative w-full h-full flex flex-col overflow-y-auto overflow-x-hidden scrollbar-hide pb-28 px-4 pt-4 bg-[#030712] animate-in fade-in zoom-in-95 duration-700"
+      // 👈 تغییر کلیدی برای رفع باگ اسکرول در این فایل
+      className="absolute inset-0 flex flex-col overflow-y-auto overflow-x-hidden scrollbar-hide pb-28 px-4 pt-4 bg-[#030712] animate-in fade-in zoom-in-95 duration-700"
     >
-      {/* پترن گرید (شبکه خطوط نوری آبی) */}
       <div
         className="absolute inset-0 pointer-events-none opacity-20"
         style={{
@@ -114,13 +107,10 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
         }}
       />
 
-      {/* 🔵 نور آبی ملایم متمرکز در مرکز صفحه */}
       <div className="absolute top-[30%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120vw] h-[60vh] bg-blue-600/15 rounded-full blur-[120px] pointer-events-none" />
 
-      {/* 🎉 فراخوانی کامپوننت آتش‌بازی */}
       <Confetti />
 
-      {/* هدر صفحه */}
       <div className="relative z-10 flex flex-col items-center text-center mt-2 mb-4 space-y-1.5 shrink-0 pointer-events-none">
         <h2 className="text-xl font-black tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-white to-blue-300 drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
           پایان رقابت و نتایج نهایی
@@ -132,7 +122,6 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
 
       {winnerTeam && winnerTeam.totalMinutes > 0 ? (
         <div className="relative z-10 w-full max-w-md mx-auto flex flex-col gap-4 shrink-0">
-          {/* 🌟 بخش اختصاصی و ویژه MVP */}
           {topUser && topUser.minutes > 0 && (
             <div className="relative flex flex-col items-center justify-center p-4 rounded-3xl bg-gradient-to-b from-blue-600/20 to-blue-950/40 border border-blue-400/30 shadow-[0_0_30px_rgba(59,130,246,0.15)] backdrop-blur-md mt-6 w-full">
               <div className="absolute -top-8 animate-bounce duration-[3000ms] z-10">
@@ -158,7 +147,6 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
                 ارزشمندترین بازیکن (MVP)
               </div>
 
-              {/* 👈 رندر مقایسه‌ای: تارگت اولیه (ثبت شده در لحظه شروع) در کنار مجموع تایم نهایی */}
               <div className="flex items-center justify-center gap-4 w-full mb-3 px-2">
                 <div className="flex flex-col items-center flex-1 bg-white/5 border border-white/10 rounded-xl py-2 shadow-inner">
                   <span className="text-[9px] text-blue-200/60 font-medium mb-1 uppercase tracking-wider">
@@ -182,7 +170,6 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
                 )}
               </div>
 
-              {/* 👈 رندر آکوردئون تاشو اختصاصی برای نمایش ریزِ تایم‌های ثبت شده MVP در طول چالش */}
               {topUser.dailyLogs && topUser.dailyLogs.length > 0 && (
                 <div className="w-full mt-1">
                   <Accordion
@@ -216,7 +203,6 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
             </div>
           )}
 
-          {/* 🛡️ کارت تیم برنده و لیست سایر اعضا (بدون تغییر) */}
           <div className="rounded-2xl bg-[#0a0f1c]/80 border border-blue-500/30 shadow-[0_8px_32px_rgba(59,130,246,0.15)] backdrop-blur-xl p-4 overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-b from-blue-500/[0.05] to-transparent pointer-events-none" />
 
@@ -244,7 +230,6 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
               </div>
             </div>
 
-            {/* لیست سایر اعضای تیم برنده */}
             {otherMembers.length > 0 && (
               <div className="flex flex-col gap-2 relative z-10">
                 <span className="text-[10px] font-bold text-blue-300/70 mb-0.5 px-1 flex items-center gap-1">
@@ -313,7 +298,6 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
         </div>
       )}
 
-      {/* دکمه پایین صفحه */}
       <div className="relative z-10 w-full max-w-md mx-auto mt-4 px-1 shrink-0">
         <button
           onClick={(e) => {

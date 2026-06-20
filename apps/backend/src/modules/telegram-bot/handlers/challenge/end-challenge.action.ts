@@ -1,6 +1,7 @@
 // apps/backend/src/modules/telegram-bot/handlers/challenge/end-challenge.action.ts
 
 import { Context, Markup } from 'telegraf';
+import jalaali from 'jalaali-js'; // 👈 اضافه شد برای محاسبه تاریخ شمسی
 import { ChallengeModel } from '#modules/challenge/challenge.model';
 import { TenantModel } from '#modules/tenant/tenant.model';
 import { UserModel } from '#modules/auth/user.model';
@@ -8,6 +9,25 @@ import { TenantMemberModel } from '#modules/tenant/tenant-member.model';
 import { TimeLogModel } from '#modules/time-log/time-log.model';
 import { formatMinutesToTime } from '#modules/time-log/utils/time-parser.util';
 import { logger } from '#utils/logger';
+
+// 👈 ماه‌های شمسی برای گزارش شفافیت
+const PERSIAN_MONTHS = [
+  'فروردین',
+  'اردیبهشت',
+  'خرداد',
+  'تیر',
+  'مرداد',
+  'شهریور',
+  'مهر',
+  'آبان',
+  'آذر',
+  'دی',
+  'بهمن',
+  'اسفند'
+];
+
+// 👈 تابع کمکی برای ایجاد تاخیر زمانی (فاز ۴)
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const handleEndChallengePrompt = async (
   ctx: Context & { match: RegExpExecArray }
@@ -85,17 +105,39 @@ export const handleDoEndChallenge = async (
     const tenant = await TenantModel.findById(challenge.tenantId).lean();
 
     if (tenant && tenant.chatId) {
-      const timeLogs = await TimeLogModel.aggregate([
-        { $match: { challengeId: challenge._id } },
+      // 👈 فاز ۱: واکشی بهینه تمام لاگ‌ها فقط با یک کوئری و نگاشت در مموری
+      const allTimeLogs = await TimeLogModel.find({
+        challengeId: challenge._id
+      }).lean();
+
+      const logsMap = new Map<
+        number,
         {
-          $group: {
-            _id: '$telegramId',
-            daysLogged: { $sum: 1 },
-            totalMinutes: { $sum: '$minutes' }
-          }
+          daysLogged: number;
+          totalMinutes: number;
+          dailyRecords: Map<number, number>;
         }
-      ]);
-      const logsMap = new Map(timeLogs.map((log) => [log._id, log]));
+      >();
+
+      const startMs = challenge.startDate.getTime();
+      const DAY_MS = 24 * 60 * 60 * 1000;
+
+      allTimeLogs.forEach((log) => {
+        const dayIndex = Math.round((log.date.getTime() - startMs) / DAY_MS);
+
+        if (!logsMap.has(log.telegramId)) {
+          logsMap.set(log.telegramId, {
+            daysLogged: 0,
+            totalMinutes: 0,
+            dailyRecords: new Map()
+          });
+        }
+
+        const userStats = logsMap.get(log.telegramId)!;
+        userStats.totalMinutes += log.minutes;
+        userStats.daysLogged += 1;
+        userStats.dailyRecords.set(dayIndex, log.minutes);
+      });
 
       const allMemberIds = challenge.teams.flatMap((t) => t.members);
       const usersInfo = await UserModel.find({
@@ -116,7 +158,6 @@ export const handleDoEndChallenge = async (
                 (m) => m.telegramId === memberId
               );
 
-              // 👈 اولویت نام مستعار
               let name = 'کاربر';
               if (membership?.alias) {
                 name = membership.alias;
@@ -126,7 +167,8 @@ export const handleDoEndChallenge = async (
 
               const stats = logsMap.get(memberId) || {
                 daysLogged: 0,
-                totalMinutes: 0
+                totalMinutes: 0,
+                dailyRecords: new Map()
               };
               teamTotal += stats.totalMinutes;
               return { name, ...stats, telegramId: memberId };
@@ -169,24 +211,83 @@ export const handleDoEndChallenge = async (
         reportMsg += `\n`;
       });
 
+      // 👈 فاز ۳: تولید و خرد کردن امنِ متن گزارش شفافیت (Chunking)
+      const transparencyChunks: string[] = [];
+      let currentChunk = `🔎 **گزارش شفافیت و عملکرد روزانه اعضا**\nجهت بررسی صحت اهداف و رقابت منصفانه:\n\n`;
+
+      teamStats.forEach((team) => {
+        let teamBlock = `🔹 **${team.name}**\n`;
+
+        if (team.membersWithStats.length === 0) {
+          teamBlock += `  بدون عضو\n\n`;
+        } else {
+          team.membersWithStats.forEach((member) => {
+            // استخراج تارگت اولیه فریز شده
+            const pt = challenge.participantTargets?.find(
+              (t) => t.telegramId === member.telegramId
+            );
+            const initialTarget = pt ? pt.target : 0;
+
+            teamBlock += `👤 کاربر **${member.name}** | 🎯 تارگت اولیه: ${formatMinutesToTime(initialTarget)}\n`;
+
+            // لیست کردن روز به روز
+            for (let i = 0; i < challenge.durationDays; i++) {
+              const targetDateMs = startMs + i * DAY_MS;
+              const targetDate = new Date(targetDateMs);
+              const { jd, jm } = jalaali.toJalaali(targetDate);
+              const dateLabel = `${jd} ${PERSIAN_MONTHS[jm - 1]}`;
+
+              const mins = member.dailyRecords.get(i) || 0;
+              const icon = mins > 0 ? '✅' : '❌';
+              teamBlock += `  ▫️ روز ${i + 1} (${dateLabel}): ${formatMinutesToTime(mins)} ${icon}\n`;
+            }
+            teamBlock += '\n';
+          });
+        }
+
+        // بررسی طول پیام قبل از اضافه کردن تیم جدید به Chunk فعلی
+        if (currentChunk.length + teamBlock.length > 3800) {
+          transparencyChunks.push(currentChunk);
+          currentChunk = teamBlock;
+        } else {
+          currentChunk += teamBlock;
+        }
+      });
+
+      if (currentChunk.trim().length > 0) {
+        transparencyChunks.push(currentChunk);
+      }
+
+      // ارسال پیام نتایج کلی
       await ctx.telegram
         .sendMessage(tenant.chatId, reportMsg, sendOptions)
         .catch((err) => {
           logger.error('Failed to send challenge end report to group:', err);
         });
 
+      // ارسال پیام تبریک MVP
       if (winnerTeam && winnerTeam.membersWithStats.length > 0) {
         const topUser = winnerTeam.membersWithStats[0];
         if (topUser.totalMinutes > 0) {
           const congratsMsg =
             `🎉 **تبریک ویژه!** 🎉\n\n` +
-            `👤 **${topUser.name}** عزیز از **${winnerTeam.name}**\n\n` +
+            `👤 کاربر **${topUser.name}** عزیز از **${winnerTeam.name}**\n\n` +
             `شما با ثبت **${formatMinutesToTime(topUser.totalMinutes)}** زمان مطالعه، رکورددار و برترین فرد تیم قهرمان شدید! 🎖👏`;
 
           await ctx.telegram
             .sendMessage(tenant.chatId, congratsMsg, sendOptions)
             .catch(() => {});
         }
+      }
+
+      // 👈 فاز ۴: شلیک متوالی و تاخیری قطعات گزارش شفافیت به گروه
+      for (const chunk of transparencyChunks) {
+        await delay(500); // نیم ثانیه تاخیر برای جلوگیری از Rate Limit
+        await ctx.telegram
+          .sendMessage(tenant.chatId, chunk, sendOptions)
+          .catch((err) => {
+            logger.error('Failed to send transparency chunk to group:', err);
+          });
       }
     }
 

@@ -19,7 +19,7 @@ interface LeaderboardTabProps {
 
 export function LeaderboardTab({
   data,
-  onRefresh, // جهت جلوگیری از ارور تایپ‌اسکریپت در کانتینر اصلی حفظ شده‌اند
+  onRefresh,
   isRefreshing,
   isArchived = false,
   onSwitchToWinner
@@ -27,7 +27,8 @@ export function LeaderboardTab({
   const { challenge: metaData, teams } = data;
 
   return (
-    <div className="relative w-full h-full flex flex-col overflow-y-auto overflow-x-hidden scrollbar-hide pb-24 px-4 pt-2">
+    // 👈 تغییر کلیدی: استفاده از absolute inset-0 به جای relative h-full برای آزادسازی اسکرول
+    <div className="absolute inset-0 flex flex-col overflow-y-auto overflow-x-hidden scrollbar-hide pb-24 px-4 pt-2">
       {/* هاله‌های نوری پس‌زمینه شرطی بر اساس وضعیت چالش */}
       <div
         className={cn(
@@ -42,7 +43,7 @@ export function LeaderboardTab({
         )}
       />
 
-      {/* هدر اطلاعات چالش (دکمه RefreshCw از اینجا حذف شد) */}
+      {/* هدر اطلاعات چالش */}
       <ChallengeHeader metaData={metaData} isArchived={isArchived} />
 
       {/* نوار پیشرفت و تقابل تیم‌ها */}

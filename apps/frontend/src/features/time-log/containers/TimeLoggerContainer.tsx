@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useTelegram } from '@hooks/useTelegram';
 import { useGetActiveLeaderboard } from '@features/leaderboard/hooks/useGetActiveLeaderboard';
-import { useGetMyTimeLogs } from '../hooks/useGetMyTimeLogs'; // 👈 امپورت هوک جدید واکشی دیتای زنده
+import { useGetMyTimeLogs } from '../hooks/useGetMyTimeLogs';
 import { useUpdateTimeLog } from '../hooks/useUpdateTimeLog';
 import { DaySelectorView } from '../components/DaySelectorView';
 import { StatusCardView } from '@components/ui/StatusCardView';
@@ -18,16 +18,14 @@ export function TimeLoggerContainer() {
   const { isReady } = useTelegram();
   const { data: leaderboardData, isLoading: isLeaderboardLoading } =
     useGetActiveLeaderboard();
-  const { data: serverLogs, isLoading: isLogsLoading } = useGetMyTimeLogs(); // 👈 واکشی زمان‌های دیتابیس
+  const { data: serverLogs, isLoading: isLogsLoading } = useGetMyTimeLogs();
   const { mutate: updateTimeLog, isPending: isSubmitting } = useUpdateTimeLog();
 
-  // استیت‌های محلی مدیریت فیلدهای فرم و روز انتخاب شده چالش
   const [selectedDay, setSelectedDay] = useState<number>(0);
   const [logMode, setLogMode] = useState<'add' | 'edit'>('add');
   const [hours, setHours] = useState<string>('');
   const [minutes, setMinutes] = useState<string>('');
 
-  // مدیریت واکنش‌گرای ذخیره‌سازی زمان‌های ثبت شده در سشن جاری مینی‌اپ
   const [localDaysMinutes, setLocalDaysMinutes] = useState<Map<number, number>>(
     new Map()
   );
@@ -38,7 +36,6 @@ export function TimeLoggerContainer() {
     message: string;
   } | null>(null);
 
-  // هوش پلتفرم: تنظیم خودکار روز جاری رقابت بر اساس دیتای زنده سرور به عنوان روز فعال پیش‌فرض
   useEffect(() => {
     if (leaderboardData?.challenge) {
       const currentDayIndex = leaderboardData.challenge.currentDay - 1;
@@ -46,7 +43,6 @@ export function TimeLoggerContainer() {
     }
   }, [leaderboardData]);
 
-  // 🔄 هیدراتاسیون خودکار استیت محلی از روی دیتای واقعی واکشی شده از دیتابیس MongoDB بک‌اَند
   useEffect(() => {
     if (serverLogs) {
       const newMap = new Map<number, number>();
@@ -120,7 +116,6 @@ export function TimeLoggerContainer() {
       targetTotalMinutes = currentLoggedMinutes + inputMinutes;
     }
 
-    // گارد محافظتی لایه فرانت‌اَند پیش از ارسال به شبکه
     const MAX_MINUTES_PER_DAY = 20 * 60;
     if (targetTotalMinutes > MAX_MINUTES_PER_DAY) {
       setNotification({
@@ -132,11 +127,9 @@ export function TimeLoggerContainer() {
       return;
     }
 
-    // محاسبه تفکیکی ساعت و دقیقه نهایی برای ارسال به بک‌اند
     const finalHoursToSend = Math.floor(targetTotalMinutes / 60);
     const finalMinutesToSend = targetTotalMinutes % 60;
 
-    // ارجاع کل لاجیک سابمیت به هوک سرور
     updateTimeLog(
       {
         hours: finalHoursToSend,
@@ -174,7 +167,8 @@ export function TimeLoggerContainer() {
   };
 
   return (
-    <div className="w-full h-full flex flex-col overflow-y-auto overflow-x-hidden scrollbar-hide pb-28 px-4 pt-2">
+    // 👈 تغییر کلیدی برای رفع باگ اسکرول در تب ثبت ساعت
+    <div className="absolute inset-0 flex flex-col overflow-y-auto overflow-x-hidden scrollbar-hide pb-28 px-4 pt-2">
       {notification && (
         <NotificationBannerView
           type={notification.type}
