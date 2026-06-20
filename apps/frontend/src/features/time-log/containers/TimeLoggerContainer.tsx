@@ -8,9 +8,9 @@ import { useGetActiveLeaderboard } from '@features/leaderboard/hooks/useGetActiv
 import { useGetMyTimeLogs } from '../hooks/useGetMyTimeLogs'; // 👈 امپورت هوک جدید واکشی دیتای زنده
 import { useUpdateTimeLog } from '../hooks/useUpdateTimeLog';
 import { DaySelectorView } from '../components/DaySelectorView';
-import { StatusCardView } from '../components/StatusCardView';
+import { StatusCardView } from '@components/ui/StatusCardView';
 import { TimeInputFormView } from '../components/TimeInputFormView';
-import { NotificationBannerView } from '../components/NotificationBannerView';
+import { NotificationBannerView } from '@components/ui/NotificationBannerView';
 import { Spinner } from '@components/ui/Spinner';
 import { Trophy } from 'lucide-react';
 

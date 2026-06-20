@@ -1,5 +1,3 @@
-// apps/frontend/src/features/time-log/components/NotificationBannerView.tsx
-
 'use client';
 
 import { CheckCircle2, AlertTriangle } from 'lucide-react';
@@ -9,7 +7,6 @@ interface NotificationBannerViewProps {
   type: 'success' | 'error';
   title: string;
   message: string;
-  onClose?: () => void;
 }
 
 export function NotificationBannerView({
@@ -22,7 +19,7 @@ export function NotificationBannerView({
   return (
     <div
       className={cn(
-        'relative z-10 w-full p-4 rounded-2xl border backdrop-blur-md mb-5 transition-all duration-300 animate-in fade-in zoom-in-95',
+        'relative z-10 w-full p-3.5 rounded-xl border mb-5 transition-all duration-300 animate-in fade-in zoom-in-95',
         isSuccess
           ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.05)]'
           : 'bg-red-500/10 border-red-500/20 text-red-300 shadow-[0_0_15px_rgba(239,68,68,0.05)]'
@@ -38,7 +35,7 @@ export function NotificationBannerView({
         </div>
         <div className="flex-1 flex flex-col items-start text-right">
           <h4 className="text-xs font-bold tracking-wide">{title}</h4>
-          <p className="text-[11px] mt-1 opacity-85 leading-relaxed">
+          <p className="text-[11px] mt-0.5 opacity-85 leading-relaxed">
             {message}
           </p>
         </div>

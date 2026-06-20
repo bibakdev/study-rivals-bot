@@ -8,7 +8,8 @@ import { BookOpen } from 'lucide-react';
 import { BottomNav, type TabType } from '@components/layout/BottomNav';
 import { HomeHeader } from '@components/layout/HomeHeader';
 import { LeaderboardContainer } from '@features/leaderboard/containers/LeaderboardContainer';
-import { TimeLogTab } from '@features/time-log'; // 👈 امپورت تب جدید متصل به دیتابیس واقعی سرور
+import { TimeLogTab } from '@features/time-log';
+import { TargetTab } from '@features/target'; // 👈 امپورت تب جدید تنظیم تارگت مطالعاتی متصل به دیتابیس واقعی
 
 export default function Home() {
   const { isReady } = useTelegram();
@@ -25,7 +26,7 @@ export default function Home() {
     }
   }, [isReady]);
 
-  // صفحه بارگذاری اختصاصی (Splash Screen) پلتفرم
+  // صفحه بارگذاری اختصاصی (Splash Screen) پلتفرم چالش
   if (isLoading) {
     return (
       <main className="relative flex flex-col items-center justify-center min-h-screen bg-background overflow-hidden selection:bg-blue-500/30">
@@ -63,15 +64,9 @@ export default function Home() {
       case 'leaderboard':
         return <LeaderboardContainer />;
       case 'log-time':
-        return <TimeLogTab />; // 👈 جایگزینی قطعی با تب زنده ثبت ساعت مطالعه متصل به روت‌های فاز دوم
+        return <TimeLogTab />;
       case 'target':
-        return (
-          <div className="flex flex-col items-center justify-center h-full animate-in fade-in duration-500">
-            <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 mb-2">
-              بخش ثبت تارگت
-            </h2>
-          </div>
-        );
+        return <TargetTab />; // 👈 جایگزینی قطعی بخش ماک با کامپوننت زنده و هیدراته تارگت کلاینت
       default:
         return null;
     }
