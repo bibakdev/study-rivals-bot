@@ -31,6 +31,14 @@ export interface TelegramWebApp {
   setBackgroundColor: (color: string) => void;
   onEvent: (eventType: string, callback: () => void) => void;
   offEvent: (eventType: string, callback: () => void) => void;
+  // 👈 این بخش برای رفع ارور اضافه شد
+  HapticFeedback: {
+    impactOccurred: (
+      style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft'
+    ) => void;
+    notificationOccurred: (type: 'error' | 'success' | 'warning') => void;
+    selectionChanged: () => void;
+  };
 }
 
 declare global {
