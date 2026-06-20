@@ -38,7 +38,7 @@ export const logTimeController = async (
     const validationResult = LogTimeRequestSchema.safeParse(req.body);
     if (!validationResult.success) {
       throw new AppError(
-        validationResult.error.errors[0].message,
+        (validationResult.error as any).errors[0].message,
         400,
         'VALIDATION_ERROR'
       );

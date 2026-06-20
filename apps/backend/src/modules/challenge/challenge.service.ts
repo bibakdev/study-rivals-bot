@@ -144,13 +144,13 @@ export const getActiveChallengeLeaderboard = async (
   const allMemberIds = challenge.teams.flatMap((t) => t.members);
 
   const [users, tenantMembers] = await Promise.all([
-    UserModel.find({ telegramId: { $in: allMemberIds } }).lean() as Promise<
-      IUserDocument[]
-    >,
+    UserModel.find({
+      telegramId: { $in: allMemberIds }
+    }).lean() as unknown as Promise<IUserDocument[]>,
     TenantMemberModel.find({
       tenantId: tenantObjectId,
       telegramId: { $in: allMemberIds }
-    }).lean() as Promise<ITenantMemberDocument[]>
+    }).lean() as unknown as Promise<ITenantMemberDocument[]>
   ]);
 
   const usersMap = new Map<number, IUserDocument>(
