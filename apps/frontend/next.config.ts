@@ -1,6 +1,8 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  transpilePackages: ['shared-types'],
+
   // اجازه دادن به دامنه ngrok فرانت‌اَند
   allowedDevOrigins: ['outbid-ducky-tightly.ngrok-free.dev', 'localhost:3000'],
 
