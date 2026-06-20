@@ -15,7 +15,7 @@ export function useGetMyTarget() {
   return useQuery<TargetResponseDto | null, Error>({
     queryKey: ['myTarget', tenantId],
     queryFn: async (): Promise<TargetResponseDto | null> => {
-      return apiClient.get<TargetResponseDto | null>('/api/targets/me');
+      return apiClient.get<any, TargetResponseDto | null>('/api/targets/me');
     },
     enabled: !!tenantId,
     staleTime: 30 * 1000, // معتبر دانستن کش تا ۳۰ ثانیه
