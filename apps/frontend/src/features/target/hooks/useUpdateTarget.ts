@@ -17,7 +17,7 @@ export function useUpdateTarget() {
     mutationFn: async (
       data: UpdateTargetRequestDto
     ): Promise<TargetResponseDto> => {
-      return apiClient.post<TargetResponseDto>('/api/targets', data);
+      return apiClient.post<any, TargetResponseDto>('/api/targets', data);
     },
     onSuccess: () => {
       // پاکسازی و تجدید آنی حافظه موقت تب لیدربرد و تب تارگت برای اعمال سریع موازنه قدرت تیمی
