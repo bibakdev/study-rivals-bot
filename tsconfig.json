@@ -3,6 +3,7 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "node",
+    "ignoreDeprecations": "6.0",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "strict": true,
     "esModuleInterop": true,
@@ -17,11 +18,5 @@
     "noUnusedParameters": true,
     "noImplicitAny": true
   },
-  "exclude": [
-    "node_modules",
-    "dist",
-    "build",
-    "**/.next",
-    "coverage"
-  ]
+  "exclude": ["node_modules", "dist", "build", "**/.next", "coverage"]
 }

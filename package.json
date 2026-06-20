@@ -13,7 +13,10 @@
     "dev": "npm run dev --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "start": "npm run start --workspaces --if-present"
+    "start": "npm run start --workspaces --if-present",
+    "build:render": "npm run build --workspace=packages/shared-types && npm run build --workspace=apps/backend",
+    "build:vercel": "npm run build --workspace=packages/shared-types && npm run build --workspace=apps/frontend",
+    "start:render": "npm run start --workspace=apps/backend"
   },
   "devDependencies": {
     "typescript": "^5.4.5",
