@@ -18,8 +18,8 @@ function useGetMyTarget() {
   const tenantId = useTenantStore((state) => state.tenantId);
   return useQuery<TargetResponseDto | null, Error>({
     queryKey: ['myTarget', tenantId],
-    queryFn: async () =>
-      apiClient.get<TargetResponseDto | null>('/api/targets/me'),
+    queryFn: async (): Promise<TargetResponseDto | null> =>
+      apiClient.get<any, TargetResponseDto | null>('/api/targets/me'),
     enabled: !!tenantId,
     refetchOnWindowFocus: false
   });
@@ -28,8 +28,11 @@ function useGetMyTarget() {
 function useSetTarget() {
   const queryClient = useQueryClient();
   return useMutation<TargetResponseDto, Error, UpdateTargetRequestDto>({
-    mutationFn: async (data) =>
-      apiClient.post<TargetResponseDto>('/api/targets', data),
+    mutationFn: async (
+      data: UpdateTargetRequestDto
+    ): Promise<TargetResponseDto> => {
+      return apiClient.post<any, TargetResponseDto>('/api/targets', data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myTarget'] });
       queryClient.invalidateQueries({ queryKey: ['activeLeaderboard'] });
