@@ -18,7 +18,7 @@ export function useGetMyTenants() {
     queryKey: ['myTenants'],
     queryFn: async (): Promise<UserTenantDto[]> => {
       // فراخوانی روت جدید ساخته شده در فاز دوم بک‌اَند
-      return apiClient.get<UserTenantDto[]>('/api/challenges/tenants/my');
+      return apiClient.get<any, UserTenantDto[]>('/api/challenges/tenants/my');
     },
     // فعال‌سازی هوک صرفاً پس از لود کامل زیرساخت و ای‌پی‌آی تلگرام
     enabled: isReady,

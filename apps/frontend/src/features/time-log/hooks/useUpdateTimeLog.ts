@@ -16,7 +16,7 @@ export function useUpdateTimeLog() {
       data: LogTimeRequestDto
     ): Promise<LogTimeResponseDto> => {
       // شلیک درخواست POST به روت امن فاز دوم بک‌اَند
-      return apiClient.post<LogTimeResponseDto>('/api/time-logs', data);
+      return apiClient.post<any, LogTimeResponseDto>('/api/time-logs', data);
     },
 
     onSuccess: () => {

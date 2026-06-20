@@ -18,7 +18,7 @@ export function useGetMyTimeLogs() {
   return useQuery<UserTimeLogDto[], Error>({
     queryKey: ['myTimeLogs', tenantId],
     queryFn: async (): Promise<UserTimeLogDto[]> => {
-      return apiClient.get<UserTimeLogDto[]>('/api/time-logs/me');
+      return apiClient.get<any, UserTimeLogDto[]>('/api/time-logs/me');
     },
     enabled: !!tenantId,
     staleTime: 15 * 1000, // حافظه موقت معتبر تا ۱۵ ثانیه

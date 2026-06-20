@@ -20,7 +20,7 @@ export function useGetActiveLeaderboard() {
     queryFn: async (): Promise<ActiveLeaderboardDto> => {
       // فراخوانی روت وب اکسپرس فعال شده در فاز سوم
       // اینترسپتور apiClient به طور خودکار هدرهای Authorization و X-Tenant-Id را تزریق می‌کند
-      return apiClient.get<ActiveLeaderboardDto>(
+      return apiClient.get<any, ActiveLeaderboardDto>(
         '/api/challenges/active/leaderboard'
       );
     },
