@@ -205,7 +205,7 @@ export const handleDoEndChallenge = async (
           reportMsg += `  بدون عضو\n`;
         } else {
           team.membersWithStats.forEach((member) => {
-            reportMsg += `   👤 ${member.name}: ${formatMinutesToTime(member.totalMinutes)} (در ${member.daysLogged} روز)\n`;
+            reportMsg += `   👤 کاربر ${member.name}: ${formatMinutesToTime(member.totalMinutes)} (در ${member.daysLogged} روز)\n`;
           });
         }
         reportMsg += `\n`;

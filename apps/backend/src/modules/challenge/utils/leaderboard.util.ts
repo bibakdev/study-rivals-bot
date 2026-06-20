@@ -65,7 +65,7 @@ export const generateLeaderboardText = async (
     team.memberScores
       .sort((a, b) => b.minutes - a.minutes)
       .forEach((member) => {
-        message += `   👤 ${member.name}: ${formatMinutesToTime(member.minutes)}\n`;
+        message += `   👤 کاربر ${member.name}: ${formatMinutesToTime(member.minutes)}\n`;
       });
     message += '\n';
   });

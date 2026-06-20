@@ -80,7 +80,7 @@ export const handleSendTeamsToGroupRequest = async (
           const targetValue = target?.dailyMinutes || 0;
           teamTotalMinutes += targetValue;
 
-          return `👤 ${name} - تارگت: ${formatMinutesToTime(targetValue)}`;
+          return `👤 کاربر ${name} - تارگت: ${formatMinutesToTime(targetValue)}`;
         })
         .join('\n');
 
