@@ -189,7 +189,8 @@ export function TimeLoggerContainer() {
       />
 
       <StatusCardView
-        selectedDayNumber={selectedDay + 1}
+        title={`روز ${selectedDay + 1} چالش`}
+        subtitle="مجموع زمان ثبت‌شده در این روز:"
         totalMinutes={currentLoggedMinutes}
       />
 
