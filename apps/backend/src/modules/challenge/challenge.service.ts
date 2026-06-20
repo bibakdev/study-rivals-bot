@@ -200,7 +200,7 @@ export const getActiveChallengeLeaderboard = async (
     const color: 'blue' | 'red' = index === 0 ? 'blue' : 'red';
 
     return {
-      id: team._id ? team._id.toString() : `team_${index}`,
+      id: (team as any)._id ? (team as any)._id.toString() : `team_${index}`,
       name: team.name,
       color,
       totalMinutes: teamTotalMinutes,
