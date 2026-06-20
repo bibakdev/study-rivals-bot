@@ -6,8 +6,9 @@ import { useState, useEffect } from 'react';
 import { useTelegram } from '@hooks/useTelegram';
 import { BookOpen } from 'lucide-react';
 import { BottomNav, type TabType } from '@components/layout/BottomNav';
-import { HomeHeader } from '@components/layout/HomeHeader'; // 👈 امپورت هدر ماژولار فاز چهارم
+import { HomeHeader } from '@components/layout/HomeHeader';
 import { LeaderboardContainer } from '@features/leaderboard/containers/LeaderboardContainer';
+import { TimeLogTab } from '@features/time-log'; // 👈 امپورت تب جدید متصل به دیتابیس واقعی سرور
 
 export default function Home() {
   const { isReady } = useTelegram();
@@ -62,13 +63,7 @@ export default function Home() {
       case 'leaderboard':
         return <LeaderboardContainer />;
       case 'log-time':
-        return (
-          <div className="flex flex-col items-center justify-center h-full animate-in fade-in duration-500">
-            <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-600 mb-2">
-              بخش ثبت ساعت
-            </h2>
-          </div>
-        );
+        return <TimeLogTab />; // 👈 جایگزینی قطعی با تب زنده ثبت ساعت مطالعه متصل به روت‌های فاز دوم
       case 'target':
         return (
           <div className="flex flex-col items-center justify-center h-full animate-in fade-in duration-500">
