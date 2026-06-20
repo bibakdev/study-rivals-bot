@@ -213,6 +213,12 @@ export const handleChallengeStateText = async (
         startDate.getTime() + durationDays * 24 * 60 * 60 * 1000
       );
 
+      // 👈 خواندن و نگاشت کردن تارگت اولیه تمام کاربران ثبت‌نامی در چالش برای فریز کردن داده
+      const participantTargets = targets.map((t) => ({
+        telegramId: t.telegramId,
+        target: t.dailyMinutes
+      }));
+
       await ChallengeModel.create({
         tenantId: new mongoose.Types.ObjectId(tenantId),
         type: 'group',
@@ -220,7 +226,8 @@ export const handleChallengeStateText = async (
         startDate: startDate,
         endDate: endDate,
         durationDays: durationDays,
-        teams
+        teams,
+        participantTargets // 👈 ذخیره تارگت‌های اولیه به صورت قطعی در سند چالش
       });
 
       await BotStateModel.deleteOne({ telegramId });
@@ -250,7 +257,6 @@ export const handleChallengeStateText = async (
           );
           const rawTarget = targets.find((t) => t.telegramId === memberId);
 
-          // 👈 اولویت نام مستعار
           let name = 'کاربر';
           if (membership?.alias) {
             name = membership.alias;

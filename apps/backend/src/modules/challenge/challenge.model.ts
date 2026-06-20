@@ -3,6 +3,12 @@
 import { Schema, model, Document, Types } from 'mongoose';
 import { ChallengeTeam } from 'shared-types';
 
+// 👈 تعریف اینترفیس محلی برای فیلد جدید
+export interface IParticipantTarget {
+  telegramId: number;
+  target: number;
+}
+
 export interface IChallengeDocument extends Document {
   tenantId: Types.ObjectId;
   type: 'group' | 'individual';
@@ -11,9 +17,10 @@ export interface IChallengeDocument extends Document {
   endDate: Date;
   durationDays: number;
   teams: ChallengeTeam[];
+  participantTargets?: IParticipantTarget[]; // 👈 اضافه شدن فیلد جدید
   status: 'pending' | 'active' | 'completed';
   lastLeaderboardMessageId?: number;
-  lastDividerMessageId?: number; // 👈 فیلد جدید اضافه شد
+  lastDividerMessageId?: number; // 👈 مقدار پیش‌فرض
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,9 +41,19 @@ const challengeSchema = new Schema<IChallengeDocument>(
     teams: [
       {
         name: { type: String, required: true },
-        members: [{ type: Number, required: true }] // Telegram IDs
+        members: { type: [Number], default: [] } // Telegram IDs
       }
     ],
+    // 👈 تعریف ساختار فیلد جدید در اسکیمای مونگوس
+    participantTargets: {
+      type: [
+        {
+          telegramId: { type: Number, required: true },
+          target: { type: Number, required: true }
+        }
+      ],
+      default: [] // برای سازگاری کامل با چالش‌های ساخته شده‌ی قبلی
+    },
     status: {
       type: String,
       enum: ['pending', 'active', 'completed'],

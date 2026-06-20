@@ -33,6 +33,8 @@ export interface IActiveLeaderboardServiceResult {
       name: string;
       minutes: number;
       avatar: string | null;
+      initialTarget?: number | null; // 👈 فیلد تارگت اولیه اضافه شد
+      dailyLogs?: Array<{ dayIndex: number; minutes: number }>; // 👈 فیلد ریز تایم روزانه اضافه شد
     }>;
   }>;
 }
@@ -90,6 +92,55 @@ export const getActiveChallengeLeaderboard = async (
     minutesMap.set(log._id, log.totalMinutes);
   });
 
+  // 👈 نگاشت سریع تارگت‌های اولیه از داکیومنت چالش برای دسترسی آسان
+  const targetMap = new Map<number, number>();
+  if (challenge.participantTargets) {
+    challenge.participantTargets.forEach((pt) => {
+      targetMap.set(pt.telegramId, pt.target);
+    });
+  }
+
+  // 👈 منطق هوشمند استخراج MVP: پیدا کردن تیم برنده و سپس استخراج کاربر برتر آن تیم
+  let winningTeamIndex = 0;
+  let maxTeamMinutes = -1;
+  challenge.teams.forEach((team, idx) => {
+    let tTotal = 0;
+    team.members.forEach((m) => {
+      tTotal += minutesMap.get(m) || 0;
+    });
+    if (tTotal > maxTeamMinutes) {
+      maxTeamMinutes = tTotal;
+      winningTeamIndex = idx;
+    }
+  });
+
+  let mvpId: number | null = null;
+  let maxMemberMinutes = -1;
+  if (challenge.teams.length > 0) {
+    const winTeam = challenge.teams[winningTeamIndex];
+    winTeam.members.forEach((m) => {
+      const mTotal = minutesMap.get(m) || 0;
+      if (mTotal > maxMemberMinutes) {
+        maxMemberMinutes = mTotal;
+        mvpId = m;
+      }
+    });
+  }
+
+  // 👈 فقط در صورتی که چالش تکمیل شده باشد و MVP داشته باشیم، یک کوئری تک‌نفره و بسیار سبک به دیتابیس می‌زنیم
+  let mvpDailyLogs: { dayIndex: number; minutes: number }[] = [];
+  if (mvpId && challenge.status === 'completed') {
+    const logs = await TimeLogModel.find({
+      challengeId: challenge._id,
+      telegramId: mvpId
+    }).lean();
+
+    mvpDailyLogs = logs.map((log) => ({
+      dayIndex: Math.round((log.date.getTime() - startMs) / DAY_MS),
+      minutes: log.minutes
+    }));
+  }
+
   const allMemberIds = challenge.teams.flatMap((t) => t.members);
 
   const [users, tenantMembers] = await Promise.all([
@@ -127,12 +178,22 @@ export const getActiveChallengeLeaderboard = async (
           `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`.trim();
       }
 
+      // 👈 تزریق دیتاهای اختصاصی به آبجکت نهایی کلاینت
+      const initialTarget = targetMap.has(memberId)
+        ? targetMap.get(memberId)
+        : null;
+      const dailyLogs =
+        memberId === mvpId && challenge!.status === 'completed'
+          ? mvpDailyLogs
+          : undefined;
+
       return {
         telegramId: memberId,
         name: finalName,
         minutes: minutes,
-        // 👈 اینجا بجای فرستادن لینک فیک، null می‌فرستیم تا فرانت‌اند بصورت تمیز روی ساخت Initial Avatar سوییچ کند
-        avatar: null
+        avatar: null,
+        initialTarget, // 👈 ارسال تارگت اولیه به فرانت‌اند
+        dailyLogs // 👈 ارسال ریز تایم روزانه (فقط برای یک نفر پر است)
       };
     });
 

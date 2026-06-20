@@ -111,6 +111,25 @@ export const handleDoAddMember = async (
     // اضافه کردن شناسه در صورتی که تکراری نباشد
     if (!challenge.teams[teamIndex].members.includes(targetTelegramId)) {
       challenge.teams[teamIndex].members.push(targetTelegramId);
+
+      // 👈 دریافت تارگت شخص و ثبت آن به عنوان اسنپ‌شات در ساختار چالش
+      const userTarget = await TargetModel.findOne({
+        tenantId: challenge.tenantId,
+        telegramId: targetTelegramId
+      }).lean();
+
+      const targetValue = userTarget ? userTarget.dailyMinutes : 0; // Fallback برای احتیاط
+
+      if (!challenge.participantTargets) {
+        challenge.participantTargets = []; // مقداردهی در صورت خالی بودن داکیومنت‌های قدیمی
+      }
+
+      // 👈 اضافه کردن تارگت به آرایه‌ی فریز شده
+      challenge.participantTargets.push({
+        telegramId: targetTelegramId,
+        target: targetValue
+      });
+
       await challenge.save();
     }
 

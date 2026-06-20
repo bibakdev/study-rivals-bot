@@ -3,6 +3,14 @@
 import { z } from 'zod';
 
 /**
+ * 👈 اسکیمای جدید لاگ‌های روزانه برای شخص MVP
+ */
+export const DailyLogSchema = z.object({
+  dayIndex: z.number().int().nonnegative(),
+  minutes: z.number().int().nonnegative()
+});
+
+/**
  * اسکیمای اعتبارسنجی ریز اطلاعات هر عضو حاضر در رتبه‌بندی چالش
  */
 export const LeaderboardMemberSchema = z.object({
@@ -16,7 +24,9 @@ export const LeaderboardMemberSchema = z.object({
     .string()
     .url('فرمت آدرس تصویر پروفایل نامعتبر است.')
     .nullable()
-    .optional()
+    .optional(),
+  initialTarget: z.number().nonnegative().nullable().optional(), // 👈 اضافه شدن فیلد تارگت اولیه
+  dailyLogs: z.array(DailyLogSchema).optional() // 👈 فیلد ریز ساعت‌های روزانه (صرفاً برای MVP پر خواهد شد)
 });
 
 /**
@@ -57,6 +67,7 @@ export const ActiveLeaderboardSchema = z
   .nullable();
 
 // استخراج تایپ‌های استاتیک برای استفاده در کامپایلر تایپ‌اسکریپت فرانت‌اند و بک‌اند
+export type DailyLogDto = z.infer<typeof DailyLogSchema>; // 👈 خروجی تایپ جدید
 export type LeaderboardMemberDto = z.infer<typeof LeaderboardMemberSchema>;
 export type LeaderboardTeamDto = z.infer<typeof LeaderboardTeamSchema>;
 export type ChallengeSummaryDto = z.infer<typeof ChallengeSummarySchema>;

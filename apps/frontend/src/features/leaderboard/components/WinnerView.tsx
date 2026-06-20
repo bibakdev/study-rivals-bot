@@ -3,11 +3,19 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Trophy, Crown, ArrowLeft, Users, Medal } from 'lucide-react';
+import {
+  Trophy,
+  ArrowLeft,
+  Users,
+  Medal,
+  Target,
+  CalendarDays
+} from 'lucide-react'; // 👈 اضافه شدن آیکون‌های جدید
 import { cn } from '@utils/cn';
 import type { ActiveLeaderboardDto } from 'shared-types';
 import { Avatar } from '@components/ui/Avatar';
 import { Confetti } from '@components/ui/Confetti';
+import { Accordion } from '@components/ui/Accordion'; // 👈 امپورت کامپوننت ساخته شده در گام قبل
 
 interface WinnerViewProps {
   data: Exclude<ActiveLeaderboardDto, null>;
@@ -90,7 +98,6 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
 
   return (
     <div
-      // 👈 اضافه کردن رویدادهای کلیک و لمس به کل صفحه برای دور زدن محدودیت مرورگر
       onClick={handleUserInteraction}
       onTouchStart={handleUserInteraction}
       className="relative w-full h-full flex flex-col overflow-y-auto overflow-x-hidden scrollbar-hide pb-28 px-4 pt-4 bg-[#030712] animate-in fade-in zoom-in-95 duration-700"
@@ -127,7 +134,7 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
         <div className="relative z-10 w-full max-w-md mx-auto flex flex-col gap-4 shrink-0">
           {/* 🌟 بخش اختصاصی و ویژه MVP */}
           {topUser && topUser.minutes > 0 && (
-            <div className="relative flex flex-col items-center justify-center p-4 rounded-3xl bg-gradient-to-b from-blue-600/20 to-blue-950/40 border border-blue-400/30 shadow-[0_0_30px_rgba(59,130,246,0.15)] backdrop-blur-md mt-6">
+            <div className="relative flex flex-col items-center justify-center p-4 rounded-3xl bg-gradient-to-b from-blue-600/20 to-blue-950/40 border border-blue-400/30 shadow-[0_0_30px_rgba(59,130,246,0.15)] backdrop-blur-md mt-6 w-full">
               <div className="absolute -top-8 animate-bounce duration-[3000ms] z-10">
                 <img
                   src="/imgs/crown.png"
@@ -146,18 +153,70 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
                 {topUser.name}
               </h3>
 
-              <div className="flex items-center gap-1.5 text-[10px] font-bold text-yellow-300 mt-1 mb-2 bg-yellow-500/10 px-2.5 py-0.5 rounded-full border border-yellow-500/20">
+              <div className="flex items-center gap-1.5 text-[10px] font-bold text-yellow-300 mt-1 mb-4 bg-yellow-500/10 px-2.5 py-0.5 rounded-full border border-yellow-500/20">
                 <Trophy className="w-3 h-3" />
                 ارزشمندترین بازیکن (MVP)
               </div>
 
-              <span className="text-sm font-mono font-bold text-blue-100 bg-[#0a0f1c]/80 px-4 py-1.5 rounded-lg border border-blue-500/40 shadow-inner">
-                {formatTime(topUser.minutes)}
-              </span>
+              {/* 👈 رندر مقایسه‌ای: تارگت اولیه (ثبت شده در لحظه شروع) در کنار مجموع تایم نهایی */}
+              <div className="flex items-center justify-center gap-4 w-full mb-3 px-2">
+                <div className="flex flex-col items-center flex-1 bg-white/5 border border-white/10 rounded-xl py-2 shadow-inner">
+                  <span className="text-[9px] text-blue-200/60 font-medium mb-1 uppercase tracking-wider">
+                    مجموع ثبت شده
+                  </span>
+                  <span className="text-sm font-mono font-black text-blue-300 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]">
+                    {formatTime(topUser.minutes)}
+                  </span>
+                </div>
+
+                {topUser.initialTarget != null && (
+                  <div className="flex flex-col items-center flex-1 bg-white/5 border border-white/10 rounded-xl py-2 shadow-inner">
+                    <span className="flex items-center gap-1 text-[9px] text-purple-200/60 font-medium mb-1 uppercase tracking-wider">
+                      <Target className="w-3 h-3" />
+                      تارگت اولیه
+                    </span>
+                    <span className="text-sm font-mono font-black text-purple-300 drop-shadow-[0_0_8px_rgba(168,85,247,0.5)]">
+                      {formatTime(topUser.initialTarget)}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* 👈 رندر آکوردئون تاشو اختصاصی برای نمایش ریزِ تایم‌های ثبت شده MVP در طول چالش */}
+              {topUser.dailyLogs && topUser.dailyLogs.length > 0 && (
+                <div className="w-full mt-1">
+                  <Accordion
+                    title={
+                      <span className="text-xs font-bold text-blue-200 flex items-center gap-1.5">
+                        <CalendarDays className="w-4 h-4 text-blue-400" />
+                        ریز کارکرد روزانه قهرمان
+                      </span>
+                    }
+                  >
+                    <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto scrollbar-hide pr-1 pb-1">
+                      {topUser.dailyLogs.map((log) => (
+                        <div
+                          key={log.dayIndex}
+                          className="flex items-center justify-between text-[11px] bg-white/[0.03] px-3 py-2 rounded-lg border border-white/5"
+                        >
+                          <span className="text-gray-300 font-medium">
+                            روز {log.dayIndex + 1}
+                          </span>
+                          <span className="font-mono font-bold text-blue-300">
+                            {log.minutes > 0
+                              ? formatTime(log.minutes)
+                              : 'ثبت نشده'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </Accordion>
+                </div>
+              )}
             </div>
           )}
 
-          {/* 🛡️ کارت تیم برنده و لیست سایر اعضا */}
+          {/* 🛡️ کارت تیم برنده و لیست سایر اعضا (بدون تغییر) */}
           <div className="rounded-2xl bg-[#0a0f1c]/80 border border-blue-500/30 shadow-[0_8px_32px_rgba(59,130,246,0.15)] backdrop-blur-xl p-4 overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-b from-blue-500/[0.05] to-transparent pointer-events-none" />
 
@@ -258,7 +317,6 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
       <div className="relative z-10 w-full max-w-md mx-auto mt-4 px-1 shrink-0">
         <button
           onClick={(e) => {
-            // توقف انتشار کلیک برای جلوگیری از تداخل
             e.stopPropagation();
             onSwitchToLeaderboard();
           }}
