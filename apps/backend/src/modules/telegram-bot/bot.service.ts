@@ -317,8 +317,9 @@ export class BotService {
       const chatType = ctx.chat?.type;
       if (chatType === 'private') {
         await handleBotOnboardingText(ctx);
+        return next();
       } else if (chatType === 'group' || chatType === 'supergroup') {
-        await handleGroupTenantMessages(ctx);
+        return handleGroupTenantMessages(ctx, next); // <--- next در اینجا اضافه شد
       }
       return next();
     });
