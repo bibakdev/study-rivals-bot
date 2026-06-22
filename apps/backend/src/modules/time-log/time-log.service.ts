@@ -7,7 +7,11 @@ import { TenantMemberModel } from '#modules/tenant/tenant-member.model';
 import { TenantModel } from '#modules/tenant/tenant.model';
 import { botService } from '#modules/telegram-bot/bot.service';
 import { generateLeaderboardText } from '#modules/challenge/utils/leaderboard.util';
-import { formatMinutesToTime } from '#modules/time-log/utils/time-parser.util';
+import {
+  formatMinutesToTime,
+  formatPersianDateLabel,
+  generateTimeDiffMessage
+} from '#modules/time-log/utils/time-parser.util';
 import { AppError } from '#utils/AppError';
 import mongoose from 'mongoose';
 import { LogTimeRequestDto, LogTimeResponseDto } from 'shared-types';
@@ -123,10 +127,17 @@ export const logTimeService = async (
         `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`.trim();
     }
 
+    // 👈 تولید برچسب تاریخ شمسی و جزئیات تفاضل هوشمند زمان
+    const persianDateLabel = formatPersianDateLabel(targetDate);
+    const timeDiffDetails = generateTimeDiffMessage(
+      oldMinutes,
+      calculatedMinutes
+    );
+
     const notificationMsg =
       `⏱ کاربر 👤 **${userName}** زمان خود را از طریق مینی‌اپ به‌روزرسانی کرد.\n` +
-      `📅 مربوط به: **روز ${data.dayIndex + 1} چالش**\n` +
-      `✏️ تغییر زمان از ${formatMinutesToTime(oldMinutes)} به **${formatMinutesToTime(calculatedMinutes)}**\n` +
+      `📅 مربوط به: **روز ${data.dayIndex + 1} چالش (${persianDateLabel})**\n` +
+      `${timeDiffDetails}\n` +
       `📊 مجموع ساعت نهایی این روز: **${formatMinutesToTime(calculatedMinutes)}**`;
 
     const sendOptions: any = { parse_mode: 'Markdown' };

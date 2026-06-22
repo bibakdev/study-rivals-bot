@@ -10,7 +10,9 @@ import { UserModel } from '#modules/auth/user.model';
 import { TenantMemberModel } from '#modules/tenant/tenant-member.model';
 import {
   parseTimeStringToMinutes,
-  formatMinutesToTime
+  formatMinutesToTime,
+  formatPersianDateLabel,
+  generateTimeDiffMessage
 } from '#modules/time-log/utils/time-parser.util';
 import { generateLeaderboardText } from '#modules/challenge/utils/leaderboard.util';
 import { logger } from '#utils/logger';
@@ -85,7 +87,7 @@ export const handleTimeLogStateText = async (
     );
     if (!isParticipating) {
       await ctx.reply(
-        '⛔️ شما از تیم‌های این چالش حذف شده‌اید و دیگر امکان ثبت ساعت ندارید.',
+        '⛔️ شما از تیم‌های این چالش حذف شده‌آید و دیگر امکان ثبت ساعت ندارید.',
         {
           reply_markup: {
             inline_keyboard: [
@@ -106,8 +108,6 @@ export const handleTimeLogStateText = async (
     const targetDateMs =
       challenge.startDate.getTime() + dayIndex * 24 * 60 * 60 * 1000;
     const targetDate = new Date(targetDateMs);
-    const { jd, jm } = jalaali.toJalaali(targetDate);
-    const dateLabel = `${jd} ${PERSIAN_MONTHS[jm - 1]}`;
 
     let currentTotal = 0;
     let oldMinutes = 0;
@@ -196,16 +196,15 @@ export const handleTimeLogStateText = async (
         userName = `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`;
       }
 
-      const actionText =
-        state.action === 'LOG_TIME_ADD'
-          ? `➕ زمان اضافه شده: **${formatMinutesToTime(minutesToLog)}**`
-          : `✏️ تغییر زمان از ${formatMinutesToTime(oldMinutes)} به **${formatMinutesToTime(minutesToLog)}**`;
+      // 👈 تولید برچسب تاریخ شمسی و جزئیات تفاضل هوشمند زمان برای ربات
+      const persianDateLabel = formatPersianDateLabel(targetDate);
+      const timeDiffDetails = generateTimeDiffMessage(oldMinutes, currentTotal);
 
       const notificationMsg =
-        `⏱ کاربر 👤 **${userName}** زمان خود را ثبت کرد.\n` +
-        `📅 مربوط به: روز ${dayIndex + 1} (${dateLabel})\n` +
-        `${actionText}\n` +
-        `📊 مجموع ساعت این روز: **${formatMinutesToTime(currentTotal)}**`;
+        `⏱ کاربر 👤 **${userName}** زمان خود را از طریق ربات به‌روزرسانی کرد.\n` +
+        `📅 مربوط به: **روز ${dayIndex + 1} چالش (${persianDateLabel})**\n` +
+        `${timeDiffDetails}\n` +
+        `📊 مجموع ساعت نهایی این روز: **${formatMinutesToTime(currentTotal)}**`;
 
       const sendOptions: any = { parse_mode: 'Markdown' };
       if (tenant.topicId) sendOptions.message_thread_id = tenant.topicId;
