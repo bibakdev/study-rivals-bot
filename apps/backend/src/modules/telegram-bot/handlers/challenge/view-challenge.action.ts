@@ -26,12 +26,16 @@ export const handleViewChallengeRequest = async (
               [Markup.button.callback('🔙 بستن', 'action_manage_groups')]
             ]
           }
-        )
+        })
         .catch(() => {});
       return;
     }
 
-    if (challenge.status !== 'pending' && challenge.status !== 'active' && challenge.status !== 'completed') {
+    if (
+      challenge.status !== 'pending' &&
+      challenge.status !== 'active' &&
+      challenge.status !== 'completed'
+    ) {
       return;
     }
 
@@ -73,9 +77,14 @@ export const handleViewChallengeRequest = async (
       const TEHRAN_OFFSET = 3.5 * 60 * 60 * 1000;
 
       // محاسبه روزهای سپری شده چالش کاملاً هماهنگ با ساعت ایران
-      const calculatedDay = Math.floor(((now + TEHRAN_OFFSET) - (startMs + TEHRAN_OFFSET)) / DAY_MS) + 1;
-      const daysPassed = Math.min(challenge.durationDays, Math.max(1, calculatedDay));
-      
+      const calculatedDay =
+        Math.floor((now + TEHRAN_OFFSET - (startMs + TEHRAN_OFFSET)) / DAY_MS) +
+        1;
+      const daysPassed = Math.min(
+        challenge.durationDays,
+        Math.max(1, calculatedDay)
+      );
+
       extraInfo = `🗓 **روزهای سپری شده:** ${daysPassed} روز از ${challenge.durationDays} روز\n`;
     }
 
