@@ -15,6 +15,7 @@ export const handleViewChallengeRequest = async (
 
     await ctx.answerCbQuery().catch(() => {});
 
+    // جستجوی چالش برای دریافت تیم‌ها
     const challenge = await ChallengeModel.findById(challengeId).lean();
 
     if (!challenge) {
@@ -25,8 +26,12 @@ export const handleViewChallengeRequest = async (
               [Markup.button.callback('🔙 بستن', 'action_manage_groups')]
             ]
           }
-        })
+        )
         .catch(() => {});
+      return;
+    }
+
+    if (challenge.status !== 'pending' && challenge.status !== 'active' && challenge.status !== 'completed') {
       return;
     }
 
@@ -63,11 +68,14 @@ export const handleViewChallengeRequest = async (
 
     if (challenge.status === 'active') {
       const now = Date.now();
-      const start = challenge.startDate.getTime();
-      const daysPassed = Math.max(
-        1,
-        Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1
-      );
+      const startMs = challenge.startDate.getTime();
+      const DAY_MS = 24 * 60 * 60 * 1000;
+      const TEHRAN_OFFSET = 3.5 * 60 * 60 * 1000;
+
+      // محاسبه روزهای سپری شده چالش کاملاً هماهنگ با ساعت ایران
+      const calculatedDay = Math.floor(((now + TEHRAN_OFFSET) - (startMs + TEHRAN_OFFSET)) / DAY_MS) + 1;
+      const daysPassed = Math.min(challenge.durationDays, Math.max(1, calculatedDay));
+      
       extraInfo = `🗓 **روزهای سپری شده:** ${daysPassed} روز از ${challenge.durationDays} روز\n`;
     }
 
@@ -98,7 +106,7 @@ export const handleViewChallengeRequest = async (
       teamStats.forEach((team) => {
         teamsInfoText += `🔹 **${team.name}** (مجموع: ${formatMinutesToTime(team.teamTotal)})\n`;
         if (team.members.length === 0) {
-          teamsInfoText += `  بدون عضو\n`;
+          teamsInfoText += `   بدون عضو\n`;
         } else {
           const membersWithStats = team.members
             .map((memberId) => {
@@ -115,7 +123,7 @@ export const handleViewChallengeRequest = async (
             .sort((a, b) => b.totalMinutes - a.totalMinutes);
 
           membersWithStats.forEach((member) => {
-            teamsInfoText += `   👤 ${member.name}: ${formatMinutesToTime(member.totalMinutes)} (در ${member.daysLogged} روز)\n`;
+            teamsInfoText += `    👤 ${member.name}: ${formatMinutesToTime(member.totalMinutes)} (در ${member.daysLogged} روز)\n`;
           });
         }
         teamsInfoText += '\n';
@@ -128,7 +136,7 @@ export const handleViewChallengeRequest = async (
         challenge.teams.forEach((team) => {
           teamsInfoText += `🔹 **${team.name}**\n`;
           if (team.members.length === 0) {
-            teamsInfoText += `  بدون عضو\n`;
+            teamsInfoText += `   بدون عضو\n`;
           } else {
             team.members.forEach((memberId) => {
               const user = usersInfo.find((u) => u.telegramId === memberId);
@@ -138,9 +146,9 @@ export const handleViewChallengeRequest = async (
 
               if (challenge.status === 'active') {
                 const daysLogged = logsMap.get(memberId)?.daysLogged || 0;
-                teamsInfoText += `   👤 ${name} - (تایم ثبت شده: ${daysLogged} روز)\n`;
+                teamsInfoText += `    👤 ${name} - (تایم ثبت شده: ${daysLogged} روز)\n`;
               } else {
-                teamsInfoText += `   👤 ${name}\n`;
+                teamsInfoText += `    👤 ${name}\n`;
               }
             });
           }
@@ -181,7 +189,6 @@ export const handleViewChallengeRequest = async (
       );
     } else if (challenge.status === 'active') {
       inlineKeyboard.push(
-        // 👈 دکمه ویرایش چالش به حالت Active اضافه شد
         [
           Markup.button.callback(
             '✏️ ویرایش چالش',
@@ -258,9 +265,6 @@ export const handleViewChallengeRequest = async (
         }
       });
   } catch (error) {
-    logger.error('Error handling view challenge action:', error);
-    await ctx
-      .answerCbQuery('⚠️ خطایی رخ داد.', { show_alert: true })
-      .catch(() => {});
+    return;
   }
 };

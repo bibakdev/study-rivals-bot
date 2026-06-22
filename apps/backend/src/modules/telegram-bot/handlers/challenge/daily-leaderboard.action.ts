@@ -42,15 +42,20 @@ export const handleDailyLeaderboardMenuRequest = async (
     const startMs = challenge.startDate.getTime();
     const duration = challenge.durationDays;
     const DAY_MS = 24 * 60 * 60 * 1000;
+    const TEHRAN_OFFSET = 3.5 * 60 * 60 * 1000;
+
+    // روز جاری چالش بر مبنای نیمه‌شب ایران
+    const calculatedDay =
+      Math.floor((now + TEHRAN_OFFSET - (startMs + TEHRAN_OFFSET)) / DAY_MS) +
+      1;
+    const currentDay = Math.min(duration, Math.max(1, calculatedDay));
 
     const inlineKeyboard: any[][] = [];
 
-    // ساخت دکمه برای روزهایی که فرا رسیده‌اند
+    // ساخت دکمه برای روزهایی که بر مبنای تقویم ایران فرا رسیده‌اند
     for (let i = 0; i < duration; i++) {
-      const targetDateMs = startMs + i * DAY_MS;
-
-      if (now >= targetDateMs) {
-        const targetDate = new Date(targetDateMs);
+      if (i < currentDay) {
+        const targetDate = new Date(startMs + i * DAY_MS + TEHRAN_OFFSET);
         const { jd, jm } = jalaali.toJalaali(targetDate);
         const dateLabel = `${jd} ${PERSIAN_MONTHS[jm - 1]}`;
 
@@ -98,10 +103,7 @@ export const handleDailyLeaderboardMenuRequest = async (
       )
       .catch(() => {});
   } catch (error) {
-    logger.error('Error viewing daily leaderboard menu:', error);
-    await ctx
-      .answerCbQuery('⚠️ خطایی رخ داد.', { show_alert: true })
-      .catch(() => {});
+    return;
   }
 };
 
@@ -118,11 +120,16 @@ export const handleDailyLeaderboardDayRequest = async (
     const challenge = await ChallengeModel.findById(challengeId).lean();
     if (!challenge) return;
 
-    // محاسبه تاریخ دقیق این روز
-    const targetDateMs =
-      challenge.startDate.getTime() + dayIndex * 24 * 60 * 60 * 1000;
-    const targetDate = new Date(targetDateMs);
-    const { jd, jm } = jalaali.toJalaali(targetDate);
+    const startMs = challenge.startDate.getTime();
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const TEHRAN_OFFSET = 3.5 * 60 * 60 * 1000;
+
+    // تاریخ کوئری دیتابیس مطابق با زمان فریز شده میلادی
+    const queryDate = new Date(startMs + dayIndex * DAY_MS);
+
+    // برچسب شمسی هماهنگ با تقویم تهران
+    const labelDate = new Date(startMs + dayIndex * DAY_MS + TEHRAN_OFFSET);
+    const { jd, jm } = jalaali.toJalaali(labelDate);
     const dateLabel = `${jd} ${PERSIAN_MONTHS[jm - 1]}`;
 
     // استخراج تمام کاربران حاضر در همه تیم‌های چالش
@@ -131,7 +138,7 @@ export const handleDailyLeaderboardDayRequest = async (
     // واکشی تایم‌های لاگ شده فقط در همین روز خاص و برای همین چالش
     const timeLogs = await TimeLogModel.find({
       challengeId: challenge._id,
-      date: targetDate
+      date: queryDate
     }).lean();
 
     // واکشی اطلاعات کاربران جهت استخراج نام و نام مستعار

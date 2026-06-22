@@ -52,7 +52,8 @@ export const logTimeService = async (
     );
   }
 
-  // ۳. محاسبه کاملاً همگام روز جاری چالش بر اساس فرمول استاندارد پلتفرم
+  // ۳. 🌍 همگام‌سازی منطقه زمانی: از آنجایی که startMs در دیتابیس دقیقاً معادل 00:00 بامداد تهران ذخیره شده است،
+  // محاسبه تفاضل زمانی (now - startMs) به صورت نیتیو چرخه تغییر روزها در ایران را درک می‌کند.
   const now = Date.now();
   const startMs = challenge.startDate.getTime();
   const DAY_MS = 24 * 60 * 60 * 1000;
@@ -63,7 +64,7 @@ export const logTimeService = async (
     Math.max(1, calculatedDay)
   );
 
-  // ⛔ گارد امنیتی هماهنگ: جلوگیری از ثبت زمان برای روزهایی که از روز جاری چالش بزرگتر هستند
+  // ⛔ گارد امنیتی هماهنگ: جلوگیری از ثبت زمان برای روزهایی که در تقویم ایران هنوز فرا نرسیده‌اند
   if (data.dayIndex > currentDay - 1) {
     throw new AppError(
       'شما مجاز به ثبت یا ویرایش زمان برای روزهای آینده چالش نیستید.',
@@ -72,11 +73,11 @@ export const logTimeService = async (
     );
   }
 
-  // محاسبه تاریخ روز هدف جهت ثبت دقیق سند در دیتابیس
+  // محاسبه دقیق تاریخ هدف بر مبنای نیمه‌شب تهران جهت ثبت دقیق سند در دیتابیس
   const targetDate = new Date(startMs + data.dayIndex * DAY_MS);
 
   const calculatedMinutes = data.hours * 60 + data.minutes;
-  const MAX_MINUTES_PER_DAY = 20 * 60; // سقف مچ مجاز روزانه: ۲۰ ساعت
+  const MAX_MINUTES_PER_DAY = 20 * 60; // سقف مجاز روزانه: ۲۰ ساعت
 
   // ۴. گارد سخت‌گیرانه ضد تقلب (Anti-Cheat Layer)
   if (calculatedMinutes > MAX_MINUTES_PER_DAY) {
@@ -127,7 +128,7 @@ export const logTimeService = async (
         `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`.trim();
     }
 
-    // 👈 تولید برچسب تاریخ شمسی و جزئیات تفاضل هوشمند زمان
+    // تولید برچسب تاریخ شمسی و جزئیات تفاضل هوشمند زمان
     const persianDateLabel = formatPersianDateLabel(targetDate);
     const timeDiffDetails = generateTimeDiffMessage(
       oldMinutes,
@@ -218,6 +219,7 @@ export const getUserTimeLogsService = async (
   const DAY_MS = 24 * 60 * 60 * 1000;
 
   return timeLogs.map((log) => {
+    // 🌍 استخراج دقیق و ایمن ایندکسِ روزها بر مبنای نیمه‌شب ایران
     const dayIndex = Math.round((log.date.getTime() - startMs) / DAY_MS);
     return {
       dayIndex,

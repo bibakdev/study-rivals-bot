@@ -67,8 +67,11 @@ export const parsePersianDate = (text: string): ParseDateResult => {
     // تبدیل به میلادی
     const { gy, gm, gd } = jalaali.toGregorian(year, month, day);
 
-    // تنظیم دقیق تاریخ روی ساعت 00:00:00 UTC
-    const date = new Date(Date.UTC(gy, gm - 1, gd, 0, 0, 0));
+    // 👈 تغییر اصلی: تنظیم دقیق زمان بر مبنای ساعت 00:00 بامداد ایران (UTC +3:30)
+    // ابتدا زمان روی 00:00 UTC تنظیم شده و سپس ۳.۵ ساعت از آن کم می‌شود تا معادل نیمه‌شب ایران در دیتابیس ذخیره شود
+    const utcMidnight = Date.UTC(gy, gm - 1, gd, 0, 0, 0);
+    const tehranMidnightTimestamp = utcMidnight - 3.5 * 60 * 60 * 1000;
+    const date = new Date(tehranMidnightTimestamp);
 
     return { isValid: true, date };
   } catch (error) {

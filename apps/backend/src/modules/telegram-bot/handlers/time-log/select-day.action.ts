@@ -77,16 +77,17 @@ export const handleSelectDayAction = async (
               ]
             ]
           }
-        })
+        )
         .catch(() => {});
       return;
     }
 
-    const targetDateMs =
-      challenge.startDate.getTime() + dayIndex * 24 * 60 * 60 * 1000;
+    const targetDateMs = challenge.startDate.getTime() + dayIndex * 24 * 60 * 60 * 1000;
     const targetDate = new Date(targetDateMs);
+    const TEHRAN_OFFSET = 3.5 * 60 * 60 * 1000;
 
-    const { jd, jm } = jalaali.toJalaali(targetDate);
+    // رندر هماهنگ تقویم جلال با آفست تهران
+    const { jd, jm } = jalaali.toJalaali(new Date(targetDateMs + TEHRAN_OFFSET));
     const dateLabel = `${jd} ${PERSIAN_MONTHS[jm - 1]}`;
 
     const existingLog = await TimeLogModel.findOne({

@@ -90,14 +90,20 @@ export const handleLogTimeMenuRequest = async (
     const startMs = challenge.startDate.getTime();
     const duration = challenge.durationDays;
     const DAY_MS = 24 * 60 * 60 * 1000;
+    const TEHRAN_OFFSET = 3.5 * 60 * 60 * 1000; // آفست زمان ایران
+
+    // محاسبه دقیق روز سپری شده بر مبنای نیمه‌شب تهران
+    const calculatedDay =
+      Math.floor((now + TEHRAN_OFFSET - (startMs + TEHRAN_OFFSET)) / DAY_MS) +
+      1;
+    const currentDay = Math.min(duration, Math.max(1, calculatedDay));
 
     const inlineKeyboard = [];
 
     for (let i = 0; i < duration; i++) {
-      const targetDateMs = startMs + i * DAY_MS;
-
-      if (now >= targetDateMs) {
-        const dateObj = new Date(targetDateMs);
+      // دکمه روزها فقط در صورتی نمایش داده می‌شود که آن روز بر مبنای زمان ایران فرا رسیده باشد
+      if (i < currentDay) {
+        const dateObj = new Date(startMs + i * DAY_MS + TEHRAN_OFFSET);
         const { jd, jm } = jalaali.toJalaali(dateObj);
         const dateLabel = `${jd} ${PERSIAN_MONTHS[jm - 1]}`;
 

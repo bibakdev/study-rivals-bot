@@ -33,8 +33,8 @@ export interface IActiveLeaderboardServiceResult {
       name: string;
       minutes: number;
       avatar: string | null;
-      initialTarget?: number | null; // 👈 فیلد تارگت اولیه اضافه شد
-      dailyLogs?: Array<{ dayIndex: number; minutes: number }>; // 👈 فیلد ریز تایم روزانه اضافه شد
+      initialTarget?: number | null;
+      dailyLogs?: Array<{ dayIndex: number; minutes: number }>;
     }>;
   }>;
 }
@@ -65,8 +65,11 @@ export const getActiveChallengeLeaderboard = async (
   const now = Date.now();
   const startMs = challenge.startDate.getTime();
   const DAY_MS = 24 * 60 * 60 * 1000;
+  const TEHRAN_OFFSET = 3.5 * 60 * 60 * 1000; // 👈 اختلاف ساعت رسمی ایران برای محاسبه مرز 12 شب
 
-  const calculatedDay = Math.floor((now - startMs) / DAY_MS) + 1;
+  // 👈 اصلاح گام دوم: انتقال محدوده محاسباتی روزها به منطقه زمانی ایران
+  const calculatedDay =
+    Math.floor((now + TEHRAN_OFFSET - (startMs + TEHRAN_OFFSET)) / DAY_MS) + 1;
   const currentDay = Math.min(
     challenge.durationDays,
     Math.max(1, calculatedDay)
@@ -92,7 +95,7 @@ export const getActiveChallengeLeaderboard = async (
     minutesMap.set(log._id, log.totalMinutes);
   });
 
-  // 👈 نگاشت سریع تارگت‌های اولیه از داکیومنت چالش برای دسترسی آسان
+  // نگاشت سریع تارگت‌های اولیه از داکیومنت چالش برای دسترسی آسان
   const targetMap = new Map<number, number>();
   if (challenge.participantTargets) {
     challenge.participantTargets.forEach((pt) => {
@@ -100,7 +103,7 @@ export const getActiveChallengeLeaderboard = async (
     });
   }
 
-  // 👈 منطق هوشمند استخراج MVP: پیدا کردن تیم برنده و سپس استخراج کاربر برتر آن تیم
+  // منطق هوشمند استخراج MVP: پیدا کردن تیم برنده و سپس استخراج کاربر برتر آن تیم
   let winningTeamIndex = 0;
   let maxTeamMinutes = -1;
   challenge.teams.forEach((team, idx) => {
@@ -127,7 +130,7 @@ export const getActiveChallengeLeaderboard = async (
     });
   }
 
-  // 👈 فقط در صورتی که چالش تکمیل شده باشد و MVP داشته باشیم، یک کوئری تک‌نفره و بسیار سبک به دیتابیس می‌زنیم
+  // فقط در صورتی که چالش تکمیل شده باشد و MVP داشته باشیم، یک کوئری تک‌نفره و بسیار سبک به دیتابیس می‌زنیم
   let mvpDailyLogs: { dayIndex: number; minutes: number }[] = [];
   if (mvpId && challenge.status === 'completed') {
     const logs = await TimeLogModel.find({
@@ -136,7 +139,11 @@ export const getActiveChallengeLeaderboard = async (
     }).lean();
 
     mvpDailyLogs = logs.map((log) => ({
-      dayIndex: Math.round((log.date.getTime() - startMs) / DAY_MS),
+      // 👈 هماهنگ‌سازی محاسبات ریز کارکرد با آفست زمانی ایران
+      dayIndex: Math.floor(
+        (log.date.getTime() + TEHRAN_OFFSET - (startMs + TEHRAN_OFFSET)) /
+          DAY_MS
+      ),
       minutes: log.minutes
     }));
   }
@@ -176,7 +183,7 @@ export const getActiveChallengeLeaderboard = async (
           `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`.trim();
       }
 
-      // 👈 تزریق دیتاهای اختصاصی به آبجکت نهایی کلاینت
+      // تزریق دیتاهای اختصاصی به آبجکت نهایی کلاینت
       const initialTarget = targetMap.has(memberId)
         ? targetMap.get(memberId)
         : null;
@@ -190,8 +197,8 @@ export const getActiveChallengeLeaderboard = async (
         name: finalName,
         minutes: minutes,
         avatar: null,
-        initialTarget, // 👈 ارسال تارگت اولیه به فرانت‌اند
-        dailyLogs // 👈 ارسال ریز تایم روزانه (فقط برای یک نفر پر است)
+        initialTarget,
+        dailyLogs
       };
     });
 
