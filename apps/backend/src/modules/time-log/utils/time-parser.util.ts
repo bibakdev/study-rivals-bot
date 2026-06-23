@@ -17,14 +17,20 @@ const PERSIAN_MONTHS = [
   'اسفند'
 ];
 
-// تابع ساخت برچسب تاریخ شمسی (نمونه: 1تیر)
+// 👈 تابع مصون از منطقه زمانی سرور (همیشه تاریخ ایران را خروجی می‌دهد)
 export const formatPersianDateLabel = (date: Date): string => {
-  const { jd, jm } = jalaali.toJalaali(date);
-  const monthName = PERSIAN_MONTHS[jm - 1];
-  return `${jd}${monthName}`;
+  const TEHRAN_OFFSET = 3.5 * 60 * 60 * 1000;
+  const tzDate = new Date(date.getTime() + TEHRAN_OFFSET);
+
+  // استخراج با متدهای UTC تا سرور Render نتواند روز را جابجا کند
+  const gy = tzDate.getUTCFullYear();
+  const gm = tzDate.getUTCMonth() + 1;
+  const gd = tzDate.getUTCDate();
+
+  const { jd, jm } = jalaali.toJalaali(gy, gm, gd);
+  return `${jd} ${PERSIAN_MONTHS[jm - 1]}`;
 };
 
-// تابع کمکی برای تبدیل اعداد فارسی و عربی به انگلیسی
 export const normalizeDigits = (text: string): string => {
   const persianNumbers = [
     /۰/g,
@@ -67,21 +73,14 @@ export const parseTimeStringToMinutes = (text: string): number | null => {
   if (trimmed.includes(':')) {
     const parts = trimmed.split(':');
     if (parts.length !== 2) return null;
-
-    const hoursStr = parts[0].trim();
-    const minsStr = parts[1].trim();
-
-    const hours = hoursStr === '' ? 0 : parseFloat(hoursStr);
-    const mins = minsStr === '' ? 0 : parseFloat(minsStr);
-
+    const hours = parts[0].trim() === '' ? 0 : parseFloat(parts[0].trim());
+    const mins = parts[1].trim() === '' ? 0 : parseFloat(parts[1].trim());
     if (isNaN(hours) || isNaN(mins)) return null;
-
     return Math.round(hours * 60 + mins);
   }
 
   const hours = parseFloat(trimmed);
   if (isNaN(hours)) return null;
-
   return Math.round(hours * 60);
 };
 
@@ -92,7 +91,6 @@ export const formatMinutesToTime = (minutes?: number): string => {
   return `${hrs}:${mins.toString().padStart(2, '0')}`;
 };
 
-// 👈 اضافه شدن گام دوم: منطق هوشمند سه حالته (محاسبه تفاضل و تولید متن گزارش)
 export const generateTimeDiffMessage = (
   oldMinutes: number,
   newMinutes: number
@@ -108,7 +106,5 @@ export const generateTimeDiffMessage = (
     diffLine = `🔹 مقدار زمان تغییر یافته: 0:00`;
   }
 
-  const comparisonLine = `✏️ تغییر زمان از ${formatMinutesToTime(oldMinutes)} به ${formatMinutesToTime(newMinutes)}`;
-
-  return `${diffLine}\n${comparisonLine}`;
+  return `${diffLine}\n✏️ تغییر زمان از ${formatMinutesToTime(oldMinutes)} به ${formatMinutesToTime(newMinutes)}`;
 };

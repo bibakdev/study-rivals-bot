@@ -1,30 +1,16 @@
 // apps/backend/src/modules/telegram-bot/handlers/challenge/daily-leaderboard.action.ts
 
 import { Context, Markup } from 'telegraf';
-import jalaali from 'jalaali-js';
 import { ChallengeModel } from '#modules/challenge/challenge.model';
 import { TimeLogModel } from '#modules/time-log/time-log.model';
 import { UserModel } from '#modules/auth/user.model';
 import { TenantMemberModel } from '#modules/tenant/tenant-member.model';
-import { formatMinutesToTime } from '#modules/time-log/utils/time-parser.util';
+import {
+  formatMinutesToTime,
+  formatPersianDateLabel
+} from '#modules/time-log/utils/time-parser.util';
 import { logger } from '#utils/logger';
 
-const PERSIAN_MONTHS = [
-  'فروردین',
-  'اردیبهشت',
-  'خرداد',
-  'تیر',
-  'مرداد',
-  'شهریور',
-  'مهر',
-  'آبان',
-  'آذر',
-  'دی',
-  'بهمن',
-  'اسفند'
-];
-
-// ۱. اکشن نمایش لیست روزهای سپری شده چالش
 export const handleDailyLeaderboardMenuRequest = async (
   ctx: Context & { match: RegExpExecArray }
 ): Promise<void> => {
@@ -44,7 +30,6 @@ export const handleDailyLeaderboardMenuRequest = async (
     const DAY_MS = 24 * 60 * 60 * 1000;
     const TEHRAN_OFFSET = 3.5 * 60 * 60 * 1000;
 
-    // روز جاری چالش بر مبنای نیمه‌شب ایران
     const calculatedDay =
       Math.floor((now + TEHRAN_OFFSET - (startMs + TEHRAN_OFFSET)) / DAY_MS) +
       1;
@@ -52,12 +37,10 @@ export const handleDailyLeaderboardMenuRequest = async (
 
     const inlineKeyboard: any[][] = [];
 
-    // ساخت دکمه برای روزهایی که بر مبنای تقویم ایران فرا رسیده‌اند
     for (let i = 0; i < duration; i++) {
       if (i < currentDay) {
-        const targetDate = new Date(startMs + i * DAY_MS + TEHRAN_OFFSET);
-        const { jd, jm } = jalaali.toJalaali(targetDate);
-        const dateLabel = `${jd} ${PERSIAN_MONTHS[jm - 1]}`;
+        const targetDate = new Date(startMs + i * DAY_MS);
+        const dateLabel = formatPersianDateLabel(targetDate);
 
         inlineKeyboard.push([
           Markup.button.callback(
@@ -107,7 +90,6 @@ export const handleDailyLeaderboardMenuRequest = async (
   }
 };
 
-// ۲. اکشن محاسبه و نمایش رتبه‌بندی کل کاربران در یک روز خاص
 export const handleDailyLeaderboardDayRequest = async (
   ctx: Context & { match: RegExpExecArray }
 ): Promise<void> => {
@@ -122,51 +104,36 @@ export const handleDailyLeaderboardDayRequest = async (
 
     const startMs = challenge.startDate.getTime();
     const DAY_MS = 24 * 60 * 60 * 1000;
-    const TEHRAN_OFFSET = 3.5 * 60 * 60 * 1000;
 
-    // تاریخ کوئری دیتابیس مطابق با زمان فریز شده میلادی
     const queryDate = new Date(startMs + dayIndex * DAY_MS);
+    const dateLabel = formatPersianDateLabel(queryDate);
 
-    // برچسب شمسی هماهنگ با تقویم تهران
-    const labelDate = new Date(startMs + dayIndex * DAY_MS + TEHRAN_OFFSET);
-    const { jd, jm } = jalaali.toJalaali(labelDate);
-    const dateLabel = `${jd} ${PERSIAN_MONTHS[jm - 1]}`;
-
-    // استخراج تمام کاربران حاضر در همه تیم‌های چالش
     const allMemberIds = challenge.teams.flatMap((t) => t.members);
 
-    // واکشی تایم‌های لاگ شده فقط در همین روز خاص و برای همین چالش
     const timeLogs = await TimeLogModel.find({
       challengeId: challenge._id,
       date: queryDate
     }).lean();
 
-    // واکشی اطلاعات کاربران جهت استخراج نام و نام مستعار
     const usersInfo = await UserModel.find({
       telegramId: { $in: allMemberIds }
     }).lean();
-
     const tenantMembers = await TenantMemberModel.find({
       tenantId: challenge.tenantId,
       telegramId: { $in: allMemberIds }
     }).lean();
 
-    // ایجاد لیست رتبه‌بندی
     const userScores = allMemberIds.map((memberId) => {
       const user = usersInfo.find((u) => u.telegramId === memberId);
       const membership = tenantMembers.find((m) => m.telegramId === memberId);
 
       let name = 'کاربر';
-      if (membership?.alias) {
-        name = membership.alias;
-      } else if (user) {
+      if (membership?.alias) name = membership.alias;
+      else if (user)
         name = `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`;
-      }
 
       const userLog = timeLogs.find((log) => log.telegramId === memberId);
       const minutes = userLog ? userLog.minutes : 0;
-
-      // پیدا کردن نام تیمی که این کاربر در آن قرار دارد
       const userTeam = challenge.teams.find((t) =>
         t.members.includes(memberId)
       );
@@ -175,7 +142,6 @@ export const handleDailyLeaderboardDayRequest = async (
       return { name, teamName, minutes };
     });
 
-    // مرتب‌سازی کاربران از بیشترین ساعت به کمترین
     userScores.sort((a, b) => b.minutes - a.minutes);
 
     let report = `🏆 **رتبه‌بندی روزانه کاربران**\n`;
@@ -191,19 +157,19 @@ export const handleDailyLeaderboardDayRequest = async (
       report += `   تیم: ${score.teamName} | تایم: **${timeStr}**\n\n`;
     });
 
-    const inlineKeyboard = [
-      [
-        Markup.button.callback(
-          '🔙 بازگشت به لیست روزها',
-          `daily_leaderboard_menu_${challengeId}`
-        )
-      ]
-    ];
-
     await ctx
       .editMessageText(report, {
         parse_mode: 'Markdown',
-        reply_markup: { inline_keyboard: inlineKeyboard }
+        reply_markup: {
+          inline_keyboard: [
+            [
+              Markup.button.callback(
+                '🔙 بازگشت به لیست روزها',
+                `daily_leaderboard_menu_${challengeId}`
+              )
+            ]
+          ]
+        }
       })
       .catch(() => {});
   } catch (error) {

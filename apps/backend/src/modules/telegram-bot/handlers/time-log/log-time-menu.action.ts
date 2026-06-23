@@ -2,24 +2,9 @@
 
 import { Context, Markup } from 'telegraf';
 import mongoose from 'mongoose';
-import jalaali from 'jalaali-js';
 import { ChallengeModel } from '#modules/challenge/challenge.model';
+import { formatPersianDateLabel } from '#modules/time-log/utils/time-parser.util';
 import { logger } from '#utils/logger';
-
-const PERSIAN_MONTHS = [
-  'فروردین',
-  'اردیبهشت',
-  'خرداد',
-  'تیر',
-  'مرداد',
-  'شهریور',
-  'مهر',
-  'آبان',
-  'آذر',
-  'دی',
-  'بهمن',
-  'اسفند'
-];
 
 export const handleLogTimeMenuRequest = async (
   ctx: Context & { match: RegExpExecArray }
@@ -29,10 +14,8 @@ export const handleLogTimeMenuRequest = async (
     const telegramId = ctx.from?.id;
 
     await ctx.answerCbQuery().catch(() => {});
-
     if (!telegramId) return;
 
-    // جستجوی چالش در حال اجرا (Active) برای این گروه
     const challenge = await ChallengeModel.findOne({
       tenantId: new mongoose.Types.ObjectId(tenantId),
       status: 'active'
@@ -59,11 +42,9 @@ export const handleLogTimeMenuRequest = async (
       return;
     }
 
-    // ⛔ گارد امنیتی: بررسی عضویت کاربر در یکی از تیم‌های چالش
     const isParticipating = challenge.teams.some((team) =>
       team.members.includes(telegramId)
     );
-
     if (!isParticipating) {
       await ctx
         .editMessageText(
@@ -90,9 +71,8 @@ export const handleLogTimeMenuRequest = async (
     const startMs = challenge.startDate.getTime();
     const duration = challenge.durationDays;
     const DAY_MS = 24 * 60 * 60 * 1000;
-    const TEHRAN_OFFSET = 3.5 * 60 * 60 * 1000; // آفست زمان ایران
+    const TEHRAN_OFFSET = 3.5 * 60 * 60 * 1000;
 
-    // محاسبه دقیق روز سپری شده بر مبنای نیمه‌شب تهران
     const calculatedDay =
       Math.floor((now + TEHRAN_OFFSET - (startMs + TEHRAN_OFFSET)) / DAY_MS) +
       1;
@@ -101,11 +81,9 @@ export const handleLogTimeMenuRequest = async (
     const inlineKeyboard = [];
 
     for (let i = 0; i < duration; i++) {
-      // دکمه روزها فقط در صورتی نمایش داده می‌شود که آن روز بر مبنای زمان ایران فرا رسیده باشد
       if (i < currentDay) {
-        const dateObj = new Date(startMs + i * DAY_MS + TEHRAN_OFFSET);
-        const { jd, jm } = jalaali.toJalaali(dateObj);
-        const dateLabel = `${jd} ${PERSIAN_MONTHS[jm - 1]}`;
+        const dateObj = new Date(startMs + i * DAY_MS);
+        const dateLabel = formatPersianDateLabel(dateObj); // 👈 استفاده یکپارچه از تابع
 
         inlineKeyboard.push([
           Markup.button.callback(
@@ -121,7 +99,6 @@ export const handleLogTimeMenuRequest = async (
     ]);
 
     let message = `⏱ **ثبت ساعت مطالعه**\n\n`;
-
     if (inlineKeyboard.length === 1) {
       message += `⏳ چالش فعال است، اما هنوز به تاریخ شروع روز اول نرسیده‌ایم.`;
     } else {

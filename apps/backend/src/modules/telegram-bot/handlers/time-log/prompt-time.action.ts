@@ -1,27 +1,14 @@
 // apps/backend/src/modules/telegram-bot/handlers/time-log/prompt-time.action.ts
 
 import { Context, Markup } from 'telegraf';
-import jalaali from 'jalaali-js';
 import { BotStateModel } from '#modules/telegram-bot/models/bot-state.model';
 import { ChallengeModel } from '#modules/challenge/challenge.model';
 import { TimeLogModel } from '#modules/time-log/time-log.model';
-import { formatMinutesToTime } from '#modules/time-log/utils/time-parser.util';
+import {
+  formatMinutesToTime,
+  formatPersianDateLabel
+} from '#modules/time-log/utils/time-parser.util';
 import { logger } from '#utils/logger';
-
-const PERSIAN_MONTHS = [
-  'فروردین',
-  'اردیبهشت',
-  'خرداد',
-  'تیر',
-  'مرداد',
-  'شهریور',
-  'مهر',
-  'آبان',
-  'آذر',
-  'دی',
-  'بهمن',
-  'اسفند'
-];
 
 export const handlePromptTimeAction = async (
   ctx: Context & { match: RegExpExecArray }
@@ -43,26 +30,22 @@ export const handlePromptTimeAction = async (
 
     if (challenge.status !== 'active') {
       await ctx
-        .editMessageText(
-          '⚠️ این چالش به پایان رسیده است و دیگر امکان ثبت یا ویرایش زمان در آن وجود ندارد.',
-          {
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  Markup.button.callback(
-                    '🔙 بازگشت به پنل',
-                    `select_tenant_${challenge.tenantId}`
-                  )
-                ]
+        .editMessageText('⚠️ این چالش به پایان رسیده است.', {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                Markup.button.callback(
+                  '🔙 بازگشت به پنل',
+                  `select_tenant_${challenge.tenantId}`
+                )
               ]
-            }
+            ]
           }
-        )
+        })
         .catch(() => {});
       return;
     }
 
-    // ⛔ گارد امنیتی
     const isParticipating = challenge.teams.some((team) =>
       team.members.includes(telegramId)
     );
@@ -98,13 +81,7 @@ export const handlePromptTimeAction = async (
     const targetDateMs =
       challenge.startDate.getTime() + dayIndex * 24 * 60 * 60 * 1000;
     const targetDate = new Date(targetDateMs);
-    const TEHRAN_OFFSET = 3.5 * 60 * 60 * 1000;
-
-    // رندر گرفتن برچسب تقویم منطبق با مبدأ ایران
-    const { jd, jm } = jalaali.toJalaali(
-      new Date(targetDateMs + TEHRAN_OFFSET)
-    );
-    const dateLabel = `${jd} ${PERSIAN_MONTHS[jm - 1]}`;
+    const dateLabel = formatPersianDateLabel(targetDate);
 
     const existingLog = await TimeLogModel.findOne({
       challengeId: challenge._id,
