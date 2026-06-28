@@ -28,6 +28,9 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [hasPlayedAudio, setHasPlayedAudio] = useState(false);
 
+  // 👈 وضعیت جدید برای نگهداری ایندکس کاربر انتخاب شده روی سکو (0 = طلا، 1 = نقره، 2 = برنز)
+  const [selectedPodiumIndex, setSelectedPodiumIndex] = useState<number>(0);
+
   useEffect(() => {
     if (
       typeof window !== 'undefined' &&
@@ -69,6 +72,12 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
     }
   };
 
+  const handlePodiumClick = (e: React.MouseEvent, index: number) => {
+    e.stopPropagation(); // جلوگیری از تداخل کلیک با لایه‌های پایین‌تر
+    setSelectedPodiumIndex(index);
+    handleUserInteraction();
+  };
+
   const winnerTeam =
     teams && teams.length > 0
       ? teams.reduce((prev, current) =>
@@ -80,11 +89,14 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
     ? [...winnerTeam.members].sort((a, b) => b.minutes - a.minutes)
     : [];
 
-  // 👈 جداسازی سه نفر اول برای سکوی قهرمانی
   const topUser = sortedMembers.length > 0 ? sortedMembers[0] : null;
   const secondUser = sortedMembers.length > 1 ? sortedMembers[1] : null;
   const thirdUser = sortedMembers.length > 2 ? sortedMembers[2] : null;
   const otherMembers = sortedMembers.slice(3);
+
+  // 👈 استخراج دیتای کاربری که هم‌اکنون روی سکو انتخاب شده است
+  const podiumUsers = [topUser, secondUser, thirdUser];
+  const activeUser = podiumUsers[selectedPodiumIndex];
 
   const formatTime = (minutes: number) => {
     const hrs = Math.floor(minutes / 60);
@@ -126,11 +138,20 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
         <div className="relative z-10 w-full max-w-md mx-auto flex flex-col gap-4 shrink-0">
           {topUser && topUser.minutes > 0 && (
             <div className="relative flex flex-col items-center justify-center p-4 rounded-3xl bg-gradient-to-b from-blue-600/20 to-blue-950/40 border border-blue-400/30 shadow-[0_0_30px_rgba(59,130,246,0.15)] backdrop-blur-md mt-14 w-full">
-              {/* 👈 بخش جدید سکوی سه‌گانه قهرمانی (Podium) */}
+              {/* سکوی سه‌گانه قهرمانی (تعاملی) */}
               <div className="flex items-end justify-center w-full gap-2 pt-6 pb-2">
                 {/* سکوی دوم (نقره) */}
                 {secondUser && secondUser.minutes > 0 ? (
-                  <div className="flex flex-col items-center flex-1">
+                  <button
+                    type="button"
+                    onClick={(e) => handlePodiumClick(e, 1)}
+                    className={cn(
+                      'flex flex-col items-center flex-1 transition-all duration-300 cursor-pointer outline-none',
+                      selectedPodiumIndex === 1
+                        ? 'opacity-100 scale-105 z-10'
+                        : 'opacity-50 hover:opacity-80 scale-95'
+                    )}
+                  >
                     <div className="relative flex flex-col items-center w-full pb-3 pt-6 bg-gradient-to-t from-slate-400/20 to-slate-300/5 rounded-t-2xl border-t-2 border-slate-300/30">
                       <div className="absolute -top-7">
                         <Avatar
@@ -147,41 +168,63 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
                         {formatTime(secondUser.minutes)}
                       </span>
                     </div>
-                  </div>
+                  </button>
                 ) : (
                   <div className="flex-1"></div>
                 )}
 
-                {/* سکوی اول (طلا) - ساختار قبلی تاج بدون تغییر حفظ شده است */}
-                <div className="flex flex-col items-center flex-[1.2]">
-                  <div className="relative flex flex-col items-center w-full pb-4 pt-7 bg-gradient-to-t from-yellow-500/20 to-yellow-400/5 rounded-t-2xl border-t-2 border-yellow-400/40 shadow-[0_-5px_15px_rgba(250,204,21,0.1)]">
-                    <div className="absolute -top-11 flex flex-col items-center">
-                      <div className="absolute -top-7 animate-bounce duration-[3000ms] z-10">
-                        <img
-                          src="/imgs/crown.png"
-                          alt="MVP Crown"
-                          className="w-12 h-12 object-contain drop-shadow-[0_8px_15px_rgba(250,204,21,0.6)]"
+                {/* سکوی اول (طلا) */}
+                {topUser ? (
+                  <button
+                    type="button"
+                    onClick={(e) => handlePodiumClick(e, 0)}
+                    className={cn(
+                      'flex flex-col items-center flex-[1.2] transition-all duration-300 cursor-pointer outline-none',
+                      selectedPodiumIndex === 0
+                        ? 'opacity-100 scale-105 z-10'
+                        : 'opacity-50 hover:opacity-80 scale-95'
+                    )}
+                  >
+                    <div className="relative flex flex-col items-center w-full pb-4 pt-7 bg-gradient-to-t from-yellow-500/20 to-yellow-400/5 rounded-t-2xl border-t-2 border-yellow-400/40 shadow-[0_-5px_15px_rgba(250,204,21,0.1)]">
+                      <div className="absolute -top-11 flex flex-col items-center">
+                        <div className="absolute -top-7 animate-bounce duration-[3000ms] z-10">
+                          <img
+                            src="/imgs/crown.png"
+                            alt="MVP Crown"
+                            className="w-12 h-12 object-contain drop-shadow-[0_8px_15px_rgba(250,204,21,0.6)]"
+                          />
+                        </div>
+                        <Avatar
+                          src={topUser.avatar}
+                          name={topUser.name}
+                          className="w-16 h-16 text-xl border-2 border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.5)] relative z-0"
                         />
                       </div>
-                      <Avatar
-                        src={topUser.avatar}
-                        name={topUser.name}
-                        className="w-16 h-16 text-xl border-2 border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.5)] relative z-0"
-                      />
+                      <span className="text-2xl mt-3 drop-shadow-md">🥇</span>
+                      <span className="text-[11px] font-black text-white mt-1 truncate px-1 max-w-[90px] w-full text-center">
+                        {topUser.name}
+                      </span>
+                      <span className="text-[10px] font-mono font-bold text-yellow-200">
+                        {formatTime(topUser.minutes)}
+                      </span>
                     </div>
-                    <span className="text-2xl mt-3 drop-shadow-md">🥇</span>
-                    <span className="text-[11px] font-black text-white mt-1 truncate px-1 max-w-[90px] w-full text-center">
-                      {topUser.name}
-                    </span>
-                    <span className="text-[10px] font-mono font-bold text-yellow-200">
-                      {formatTime(topUser.minutes)}
-                    </span>
-                  </div>
-                </div>
+                  </button>
+                ) : (
+                  <div className="flex-[1.2]"></div>
+                )}
 
                 {/* سکوی سوم (برنز) */}
                 {thirdUser && thirdUser.minutes > 0 ? (
-                  <div className="flex flex-col items-center flex-1">
+                  <button
+                    type="button"
+                    onClick={(e) => handlePodiumClick(e, 2)}
+                    className={cn(
+                      'flex flex-col items-center flex-1 transition-all duration-300 cursor-pointer outline-none',
+                      selectedPodiumIndex === 2
+                        ? 'opacity-100 scale-105 z-10'
+                        : 'opacity-50 hover:opacity-80 scale-95'
+                    )}
+                  >
                     <div className="relative flex flex-col items-center w-full pb-2 pt-5 bg-gradient-to-t from-orange-500/20 to-orange-400/5 rounded-t-2xl border-t-2 border-orange-400/30">
                       <div className="absolute -top-6">
                         <Avatar
@@ -198,69 +241,89 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
                         {formatTime(thirdUser.minutes)}
                       </span>
                     </div>
-                  </div>
+                  </button>
                 ) : (
                   <div className="flex-1"></div>
                 )}
               </div>
 
-              <div className="flex items-center gap-1.5 text-[10px] font-bold text-yellow-300 mt-2 mb-4 bg-yellow-500/10 px-2.5 py-0.5 rounded-full border border-yellow-500/20">
-                <Trophy className="w-3 h-3" />
-                ارزشمندترین بازیکن (MVP)
-              </div>
-
-              <div className="flex items-center justify-center gap-4 w-full mb-3 px-2">
-                <div className="flex flex-col items-center flex-1 bg-white/5 border border-white/10 rounded-xl py-2 shadow-inner">
-                  <span className="text-[9px] text-blue-200/60 font-medium mb-1 uppercase tracking-wider">
-                    مجموع ثبت شده
-                  </span>
-                  <span className="text-sm font-mono font-black text-blue-300 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]">
-                    {formatTime(topUser.minutes)}
-                  </span>
-                </div>
-
-                {topUser.initialTarget != null && (
-                  <div className="flex flex-col items-center flex-1 bg-white/5 border border-white/10 rounded-xl py-2 shadow-inner">
-                    <span className="flex items-center gap-1 text-[9px] text-purple-200/60 font-medium mb-1 uppercase tracking-wider">
-                      <Target className="w-3 h-3" />
-                      تارگت اولیه
-                    </span>
-                    <span className="text-sm font-mono font-black text-purple-300 drop-shadow-[0_0_8px_rgba(168,85,247,0.5)]">
-                      {formatTime(topUser.initialTarget)}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {topUser.dailyLogs && topUser.dailyLogs.length > 0 && (
-                <div className="w-full mt-1">
-                  <Accordion
-                    title={
-                      <span className="text-xs font-bold text-blue-200 flex items-center gap-1.5">
-                        <CalendarDays className="w-4 h-4 text-blue-400" />
-                        ریز کارکرد روزانه قهرمان
-                      </span>
-                    }
+              {/* نمایش اطلاعات پویای فرد انتخاب شده */}
+              {activeUser && (
+                <>
+                  <div
+                    className={cn(
+                      'flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full border mt-2 mb-4',
+                      selectedPodiumIndex === 0
+                        ? 'text-yellow-300 bg-yellow-500/10 border-yellow-500/20'
+                        : selectedPodiumIndex === 1
+                          ? 'text-slate-300 bg-slate-500/10 border-slate-500/20'
+                          : 'text-orange-300 bg-orange-500/10 border-orange-500/20'
+                    )}
                   >
-                    <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto scrollbar-hide pr-1 pb-1">
-                      {topUser.dailyLogs.map((log) => (
-                        <div
-                          key={log.dayIndex}
-                          className="flex items-center justify-between text-[11px] bg-white/[0.03] px-3 py-2 rounded-lg border border-white/5"
-                        >
-                          <span className="text-gray-300 font-medium">
-                            روز {log.dayIndex + 1}
-                          </span>
-                          <span className="font-mono font-bold text-blue-300">
-                            {log.minutes > 0
-                              ? formatTime(log.minutes)
-                              : 'ثبت نشده'}
-                          </span>
-                        </div>
-                      ))}
+                    {selectedPodiumIndex === 0 && (
+                      <Trophy className="w-3 h-3" />
+                    )}
+                    {selectedPodiumIndex === 0
+                      ? 'ارزشمندترین بازیکن (MVP)'
+                      : selectedPodiumIndex === 1
+                        ? 'رتبه دوم تیم'
+                        : 'رتبه سوم تیم'}
+                  </div>
+
+                  <div className="flex items-center justify-center gap-4 w-full mb-3 px-2">
+                    <div className="flex flex-col items-center flex-1 bg-white/5 border border-white/10 rounded-xl py-2 shadow-inner">
+                      <span className="text-[9px] text-blue-200/60 font-medium mb-1 uppercase tracking-wider">
+                        مجموع ثبت شده
+                      </span>
+                      <span className="text-sm font-mono font-black text-blue-300 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]">
+                        {formatTime(activeUser.minutes)}
+                      </span>
                     </div>
-                  </Accordion>
-                </div>
+
+                    {activeUser.initialTarget != null && (
+                      <div className="flex flex-col items-center flex-1 bg-white/5 border border-white/10 rounded-xl py-2 shadow-inner">
+                        <span className="flex items-center gap-1 text-[9px] text-purple-200/60 font-medium mb-1 uppercase tracking-wider">
+                          <Target className="w-3 h-3" />
+                          تارگت اولیه
+                        </span>
+                        <span className="text-sm font-mono font-black text-purple-300 drop-shadow-[0_0_8px_rgba(168,85,247,0.5)]">
+                          {formatTime(activeUser.initialTarget)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {activeUser.dailyLogs && activeUser.dailyLogs.length > 0 && (
+                    <div className="w-full mt-1">
+                      <Accordion
+                        title={
+                          <span className="text-xs font-bold text-blue-200 flex items-center gap-1.5">
+                            <CalendarDays className="w-4 h-4 text-blue-400" />
+                            ریز کارکرد روزانه {activeUser.name}
+                          </span>
+                        }
+                      >
+                        <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto scrollbar-hide pr-1 pb-1">
+                          {activeUser.dailyLogs.map((log) => (
+                            <div
+                              key={log.dayIndex}
+                              className="flex items-center justify-between text-[11px] bg-white/[0.03] px-3 py-2 rounded-lg border border-white/5"
+                            >
+                              <span className="text-gray-300 font-medium">
+                                روز {log.dayIndex + 1}
+                              </span>
+                              <span className="font-mono font-bold text-blue-300">
+                                {log.minutes > 0
+                                  ? formatTime(log.minutes)
+                                  : 'ثبت نشده'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </Accordion>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -300,7 +363,7 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
                 </span>
 
                 {otherMembers.map((member, index) => {
-                  // 👈 رتبه‌ها حالا از ۴ به بعد محاسبه می‌شوند چون سه نفر اول روی سکو هستند
+                  // چون 3 نفر اول روی سکو هستند، رتبه سایرین از 4 شروع می‌شود
                   const rank = index + 4;
 
                   return (
