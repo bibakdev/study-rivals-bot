@@ -131,15 +131,26 @@ export const handleChallengeStateText = async (
         return true;
       }
 
-      const targets = await TargetModel.find({
-        tenantId: new mongoose.Types.ObjectId(tenantId)
+      // 🛡️ فیلتر امنیتی: استخراج فقط اعضایی که در گروه حضور دارند و تعلیق نیستند
+      const activeMembers = await TenantMemberModel.find({
+        tenantId: new mongoose.Types.ObjectId(tenantId),
+        isSuspended: false
       }).lean();
+
+      const activeMemberIds = activeMembers.map((m) => m.telegramId);
+
+      // استخراج تارگت‌ها فقط برای اعضای معتبر
+      const targets = await TargetModel.find({
+        tenantId: new mongoose.Types.ObjectId(tenantId),
+        telegramId: { $in: activeMemberIds }
+      }).lean();
+
       const targetCount = targets.length;
 
       if (targetCount === 0) {
         await BotStateModel.deleteOne({ telegramId });
         await ctx.reply(
-          '⚠️ **هیچ تارگتی یافت نشد!**\nدر این گروه هنوز هیچ کاربری تارگت خود را ثبت نکرده است.'
+          '⚠️ **هیچ کاربری واجد شرایط نیست!**\nکاربران فعال این گروه هنوز تارگتی ثبت نکرده‌اند.'
         );
         return true;
       }
@@ -155,7 +166,7 @@ export const handleChallengeStateText = async (
       );
 
       await ctx.reply(
-        `👥 **گام ۳: تعیین تیم‌ها**\n\nتا این لحظه **${targetCount} نفر** برای چالش تارگت مشخص کرده‌اند.\nمی‌خواهید این نفرات به چند تیم تقسیم شوند؟ (عدد وارد کنید، پیش‌فرض: \`2\`):`,
+        `👥 **گام ۳: تعیین تیم‌ها**\n\nتا این لحظه **${targetCount} نفر** فعال و واجد شرایط برای چالش تارگت مشخص کرده‌اند.\nمی‌خواهید این نفرات به چند تیم تقسیم شوند؟ (عدد وارد کنید، پیش‌فرض: \`2\`):`,
         {
           parse_mode: 'Markdown',
           reply_markup: {
@@ -179,13 +190,23 @@ export const handleChallengeStateText = async (
         teamCount = 2;
       }
 
+      // 🛡️ فیلتر امنیتی مجدد: استخراج اعضای فعال
+      const activeMembers = await TenantMemberModel.find({
+        tenantId: new mongoose.Types.ObjectId(tenantId),
+        isSuspended: false
+      }).lean();
+
+      const activeMemberIds = activeMembers.map((m) => m.telegramId);
+
       const targets = await TargetModel.find({
-        tenantId: new mongoose.Types.ObjectId(tenantId)
+        tenantId: new mongoose.Types.ObjectId(tenantId),
+        telegramId: { $in: activeMemberIds }
       }).lean();
 
       const sortedTargets = targets.sort(
         (a, b) => b.dailyMinutes - a.dailyMinutes
       );
+
       const teamStats = Array.from({ length: teamCount }, (_, i) => ({
         name: `گروه ${String.fromCharCode(65 + i)}`,
         members: [] as number[],
@@ -213,7 +234,6 @@ export const handleChallengeStateText = async (
         startDate.getTime() + durationDays * 24 * 60 * 60 * 1000
       );
 
-      // 👈 خواندن و نگاشت کردن تارگت اولیه تمام کاربران ثبت‌نامی در چالش برای فریز کردن داده
       const participantTargets = targets.map((t) => ({
         telegramId: t.telegramId,
         target: t.dailyMinutes
@@ -227,7 +247,7 @@ export const handleChallengeStateText = async (
         endDate: endDate,
         durationDays: durationDays,
         teams,
-        participantTargets // 👈 ذخیره تارگت‌های اولیه به صورت قطعی در سند چالش
+        participantTargets
       });
 
       await BotStateModel.deleteOne({ telegramId });
@@ -241,6 +261,7 @@ export const handleChallengeStateText = async (
       const usersInfo = await UserModel.find({
         telegramId: { $in: allUserIds }
       }).lean();
+
       const tenantMembers = await TenantMemberModel.find({
         tenantId: new mongoose.Types.ObjectId(tenantId),
         telegramId: { $in: allUserIds }

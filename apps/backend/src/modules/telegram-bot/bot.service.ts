@@ -39,6 +39,14 @@ import {
   handleAliasDelete
 } from '#modules/telegram-bot/handlers/tenant/alias-manage.action';
 
+// مدیریت تارگت‌ها توسط ادمین
+import { handleManageUsersTargetsMenu } from '#modules/telegram-bot/handlers/tenant/manage-targets-menu.action';
+import {
+  handleUserTargetDetail,
+  handleDeleteUserTarget,
+  handleEditUserTargetPrompt // 👈 ایمپورت اضافه شد
+} from '#modules/telegram-bot/handlers/tenant/manage-targets-detail.action';
+
 // Target Handlers
 import { handleSetTargetRequest } from '#modules/telegram-bot/handlers/target/set-target.action';
 import { handleSelectChallengeRequest } from '#modules/telegram-bot/handlers/target/select-challenge.action';
@@ -218,7 +226,7 @@ export class BotService {
       handleViewUserLogsRequest
     );
 
-    // اکشن‌های ثبت شده برای رتبه‌بندی روزانه
+    // رتبه‌بندی روزانه
     this.bot.action(
       /^daily_leaderboard_menu_([a-f\d]{24})$/i,
       handleDailyLeaderboardMenuRequest
@@ -228,7 +236,7 @@ export class BotService {
       handleDailyLeaderboardDayRequest
     );
 
-    // 👈 دکمه‌های مربوط به حذف چالش (گام تاییدیه و گام اجرا)
+    // دکمه‌های مربوط به حذف چالش
     this.bot.action(
       /^delete_challenge_([a-f\d]{24})$/i,
       handleDeleteChallengePrompt
@@ -309,6 +317,27 @@ export class BotService {
       handleAliasDelete
     );
 
+    // منوی مدیریت تارگت‌ها توسط ادمین
+    this.bot.action(
+      /^action_manage_users_targets_([a-f\d]{24})$/i,
+      handleManageUsersTargetsMenu
+    );
+
+    this.bot.action(
+      /^action_user_target_detail_([a-f\d]{24})_(\d+)$/i,
+      handleUserTargetDetail
+    );
+    this.bot.action(
+      /^action_delete_user_target_([a-f\d]{24})_(\d+)$/i,
+      handleDeleteUserTarget
+    );
+
+    // 👈 اضافه شدن اکشن دریافت پرامپت ویرایش تارگت
+    this.bot.action(
+      /^action_edit_user_target_prompt_([a-f\d]{24})_(\d+)$/i,
+      handleEditUserTargetPrompt
+    );
+
     // هندلر خارج شدن کاربران
     this.bot.on('left_chat_member', handleLeaveGroup);
 
@@ -319,7 +348,7 @@ export class BotService {
         await handleBotOnboardingText(ctx);
         return next();
       } else if (chatType === 'group' || chatType === 'supergroup') {
-        return handleGroupTenantMessages(ctx, next); // <--- next در اینجا اضافه شد
+        return handleGroupTenantMessages(ctx, next);
       }
       return next();
     });
