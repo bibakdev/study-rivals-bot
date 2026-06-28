@@ -264,7 +264,7 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
                       <Trophy className="w-3 h-3" />
                     )}
                     {selectedPodiumIndex === 0
-                      ? 'ارزشمندترین بازیکن (MVP)'
+                      ? 'ارزشمند ترین عضو تیم'
                       : selectedPodiumIndex === 1
                         ? 'رتبه دوم تیم'
                         : 'رتبه سوم تیم'}
