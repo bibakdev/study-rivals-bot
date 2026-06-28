@@ -80,8 +80,11 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
     ? [...winnerTeam.members].sort((a, b) => b.minutes - a.minutes)
     : [];
 
+  // 👈 جداسازی سه نفر اول برای سکوی قهرمانی
   const topUser = sortedMembers.length > 0 ? sortedMembers[0] : null;
-  const otherMembers = sortedMembers.slice(1);
+  const secondUser = sortedMembers.length > 1 ? sortedMembers[1] : null;
+  const thirdUser = sortedMembers.length > 2 ? sortedMembers[2] : null;
+  const otherMembers = sortedMembers.slice(3);
 
   const formatTime = (minutes: number) => {
     const hrs = Math.floor(minutes / 60);
@@ -93,7 +96,6 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
     <div
       onClick={handleUserInteraction}
       onTouchStart={handleUserInteraction}
-      // 👈 تغییر کلیدی برای رفع باگ اسکرول در این فایل
       className="absolute inset-0 flex flex-col overflow-y-auto overflow-x-hidden scrollbar-hide pb-28 px-4 pt-4 bg-[#030712] animate-in fade-in zoom-in-95 duration-700"
     >
       <div
@@ -123,26 +125,86 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
       {winnerTeam && winnerTeam.totalMinutes > 0 ? (
         <div className="relative z-10 w-full max-w-md mx-auto flex flex-col gap-4 shrink-0">
           {topUser && topUser.minutes > 0 && (
-            <div className="relative flex flex-col items-center justify-center p-4 rounded-3xl bg-gradient-to-b from-blue-600/20 to-blue-950/40 border border-blue-400/30 shadow-[0_0_30px_rgba(59,130,246,0.15)] backdrop-blur-md mt-6 w-full">
-              <div className="absolute -top-8 animate-bounce duration-[3000ms] z-10">
-                <img
-                  src="/imgs/crown.png"
-                  alt="MVP Crown"
-                  className="w-14 h-14 object-contain drop-shadow-[0_8px_15px_rgba(250,204,21,0.6)]"
-                />
+            <div className="relative flex flex-col items-center justify-center p-4 rounded-3xl bg-gradient-to-b from-blue-600/20 to-blue-950/40 border border-blue-400/30 shadow-[0_0_30px_rgba(59,130,246,0.15)] backdrop-blur-md mt-14 w-full">
+              {/* 👈 بخش جدید سکوی سه‌گانه قهرمانی (Podium) */}
+              <div className="flex items-end justify-center w-full gap-2 pt-6 pb-2">
+                {/* سکوی دوم (نقره) */}
+                {secondUser && secondUser.minutes > 0 ? (
+                  <div className="flex flex-col items-center flex-1">
+                    <div className="relative flex flex-col items-center w-full pb-3 pt-6 bg-gradient-to-t from-slate-400/20 to-slate-300/5 rounded-t-2xl border-t-2 border-slate-300/30">
+                      <div className="absolute -top-7">
+                        <Avatar
+                          src={secondUser.avatar}
+                          name={secondUser.name}
+                          className="w-12 h-12 text-sm border-2 border-slate-300 shadow-[0_0_10px_rgba(203,213,225,0.4)]"
+                        />
+                      </div>
+                      <span className="text-xl mt-1 drop-shadow-md">🥈</span>
+                      <span className="text-[10px] font-bold text-gray-200 mt-1 truncate px-1 max-w-[80px] w-full text-center">
+                        {secondUser.name}
+                      </span>
+                      <span className="text-[9px] font-mono text-gray-400">
+                        {formatTime(secondUser.minutes)}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-1"></div>
+                )}
+
+                {/* سکوی اول (طلا) - ساختار قبلی تاج بدون تغییر حفظ شده است */}
+                <div className="flex flex-col items-center flex-[1.2]">
+                  <div className="relative flex flex-col items-center w-full pb-4 pt-7 bg-gradient-to-t from-yellow-500/20 to-yellow-400/5 rounded-t-2xl border-t-2 border-yellow-400/40 shadow-[0_-5px_15px_rgba(250,204,21,0.1)]">
+                    <div className="absolute -top-11 flex flex-col items-center">
+                      <div className="absolute -top-7 animate-bounce duration-[3000ms] z-10">
+                        <img
+                          src="/imgs/crown.png"
+                          alt="MVP Crown"
+                          className="w-12 h-12 object-contain drop-shadow-[0_8px_15px_rgba(250,204,21,0.6)]"
+                        />
+                      </div>
+                      <Avatar
+                        src={topUser.avatar}
+                        name={topUser.name}
+                        className="w-16 h-16 text-xl border-2 border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.5)] relative z-0"
+                      />
+                    </div>
+                    <span className="text-2xl mt-3 drop-shadow-md">🥇</span>
+                    <span className="text-[11px] font-black text-white mt-1 truncate px-1 max-w-[90px] w-full text-center">
+                      {topUser.name}
+                    </span>
+                    <span className="text-[10px] font-mono font-bold text-yellow-200">
+                      {formatTime(topUser.minutes)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* سکوی سوم (برنز) */}
+                {thirdUser && thirdUser.minutes > 0 ? (
+                  <div className="flex flex-col items-center flex-1">
+                    <div className="relative flex flex-col items-center w-full pb-2 pt-5 bg-gradient-to-t from-orange-500/20 to-orange-400/5 rounded-t-2xl border-t-2 border-orange-400/30">
+                      <div className="absolute -top-6">
+                        <Avatar
+                          src={thirdUser.avatar}
+                          name={thirdUser.name}
+                          className="w-10 h-10 text-xs border-2 border-orange-400 shadow-[0_0_10px_rgba(251,146,60,0.4)]"
+                        />
+                      </div>
+                      <span className="text-lg mt-1 drop-shadow-md">🥉</span>
+                      <span className="text-[10px] font-bold text-gray-200 mt-1 truncate px-1 max-w-[80px] w-full text-center">
+                        {thirdUser.name}
+                      </span>
+                      <span className="text-[9px] font-mono text-gray-400">
+                        {formatTime(thirdUser.minutes)}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-1"></div>
+                )}
               </div>
 
-              <Avatar
-                src={topUser.avatar}
-                name={topUser.name}
-                className="w-16 h-16 text-xl mt-3 mb-2 border-2 border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.5)]"
-              />
-
-              <h3 className="text-lg font-black text-white drop-shadow-md tracking-wide">
-                {topUser.name}
-              </h3>
-
-              <div className="flex items-center gap-1.5 text-[10px] font-bold text-yellow-300 mt-1 mb-4 bg-yellow-500/10 px-2.5 py-0.5 rounded-full border border-yellow-500/20">
+              <div className="flex items-center gap-1.5 text-[10px] font-bold text-yellow-300 mt-2 mb-4 bg-yellow-500/10 px-2.5 py-0.5 rounded-full border border-yellow-500/20">
                 <Trophy className="w-3 h-3" />
                 ارزشمندترین بازیکن (MVP)
               </div>
@@ -238,7 +300,8 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
                 </span>
 
                 {otherMembers.map((member, index) => {
-                  const rank = index + 2;
+                  // 👈 رتبه‌ها حالا از ۴ به بعد محاسبه می‌شوند چون سه نفر اول روی سکو هستند
+                  const rank = index + 4;
 
                   return (
                     <div
@@ -246,15 +309,9 @@ export function WinnerView({ data, onSwitchToLeaderboard }: WinnerViewProps) {
                       className="flex items-center gap-2.5 p-2 rounded-lg bg-blue-950/40 border border-blue-500/10 hover:bg-blue-900/40 transition-colors"
                     >
                       <div className="w-6 text-center shrink-0">
-                        {rank === 2 ? (
-                          <span className="text-base drop-shadow-md">🥈</span>
-                        ) : rank === 3 ? (
-                          <span className="text-base drop-shadow-md">🥉</span>
-                        ) : (
-                          <span className="text-[11px] font-bold text-blue-400/60">
-                            {rank}
-                          </span>
-                        )}
+                        <span className="text-[11px] font-bold text-blue-400/60">
+                          {rank}
+                        </span>
                       </div>
 
                       <Avatar
