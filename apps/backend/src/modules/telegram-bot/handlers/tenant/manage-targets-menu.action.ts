@@ -96,7 +96,7 @@ export const handleManageUsersTargetsMenu = async (
       return [
         Markup.button.callback(
           `🎯 ${displayName}`,
-          `action_user_target_detail_${tenantId}_${target.telegramId}` // این اکشن در فاز ۲ ساخته می‌شود
+          `tgt_dtl_${tenantId}_${target.telegramId}` // این اکشن در فاز ۲ ساخته می‌شود
         )
       ];
     });

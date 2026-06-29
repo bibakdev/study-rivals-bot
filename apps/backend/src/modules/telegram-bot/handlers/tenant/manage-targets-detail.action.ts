@@ -89,13 +89,13 @@ export const handleUserTargetDetail = async (
       [
         Markup.button.callback(
           '✏️ تغییر تارگت',
-          `action_edit_user_target_prompt_${tenantId}_${targetTelegramId}`
+          `edit_tgt_prmpt_${tenantId}_${targetTelegramId}`
         )
       ],
       [
         Markup.button.callback(
           '🗑 حذف تارگت',
-          `action_delete_user_target_${tenantId}_${targetTelegramId}`
+          `del_tgt_${tenantId}_${targetTelegramId}`
         )
       ],
       [
