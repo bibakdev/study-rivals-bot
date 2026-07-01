@@ -46,6 +46,14 @@ import { handleDeleteTargetRequest } from '#modules/telegram-bot/handlers/target
 import { handleEditTargetRequest } from '#modules/telegram-bot/handlers/target/edit-target.action';
 import { handleCancelTargetRequest } from '#modules/telegram-bot/handlers/target/cancel-target.action';
 
+// Admin Target Management Handlers
+import {
+  handleAdminTargetsList,
+  handleAdminTargetMenu,
+  handleAdminDeleteTarget,
+  handleAdminEditTargetPrompt
+} from '#modules/telegram-bot/handlers/target/admin-manage-targets.action';
+
 // Time Log Handlers
 import { handleLogTimeMenuRequest } from '#modules/telegram-bot/handlers/time-log/log-time-menu.action';
 import { handleSelectDayAction } from '#modules/telegram-bot/handlers/time-log/select-day.action';
@@ -152,6 +160,24 @@ export class BotService {
       handleCancelTargetRequest
     );
 
+    // اکشن‌های مربوط به مدیریت تارگت توسط ادمین
+    this.bot.action(
+      /^admin_targets_list_([a-f\d]{24})$/i,
+      handleAdminTargetsList
+    );
+    this.bot.action(
+      /^admin_target_menu_([a-f\d]{24})_(\d+)$/i,
+      handleAdminTargetMenu
+    );
+    this.bot.action(
+      /^admin_delete_target_([a-f\d]{24})_(\d+)$/i,
+      handleAdminDeleteTarget
+    );
+    this.bot.action(
+      /^admin_edit_target_prompt_([a-f\d]{24})_(\d+)$/i,
+      handleAdminEditTargetPrompt
+    );
+
     // اکشن‌های مربوط به منوی ثبت ساعت
     this.bot.action(
       /^action_log_time_([a-f\d]{24})$/i,
@@ -218,7 +244,7 @@ export class BotService {
       handleViewUserLogsRequest
     );
 
-    // اکشن‌های ثبت شده برای رتبه‌بندی روزانه
+    // رتبه‌بندی روزانه
     this.bot.action(
       /^daily_leaderboard_menu_([a-f\d]{24})$/i,
       handleDailyLeaderboardMenuRequest
@@ -228,7 +254,7 @@ export class BotService {
       handleDailyLeaderboardDayRequest
     );
 
-    // 👈 دکمه‌های مربوط به حذف چالش (گام تاییدیه و گام اجرا)
+    // دکمه‌های مربوط به حذف چالش (گام تاییدیه و گام اجرا)
     this.bot.action(
       /^delete_challenge_([a-f\d]{24})$/i,
       handleDeleteChallengePrompt
@@ -319,7 +345,7 @@ export class BotService {
         await handleBotOnboardingText(ctx);
         return next();
       } else if (chatType === 'group' || chatType === 'supergroup') {
-        return handleGroupTenantMessages(ctx, next); // <--- next در اینجا اضافه شد
+        return handleGroupTenantMessages(ctx, next);
       }
       return next();
     });

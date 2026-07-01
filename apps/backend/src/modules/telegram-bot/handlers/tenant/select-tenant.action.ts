@@ -90,7 +90,7 @@ export const handleSelectTenant = async (
       }
     ]);
 
-    // 👈 محدودسازی منوی "چالش‌ها" فقط برای ادمین‌ها و اکانت مادر
+    // 👈 محدودسازی منوی "چالش‌ها" و "مدیریت تارگت کاربران" فقط برای ادمین‌ها و اکانت مادر
     if (
       systemRole === 'mother' ||
       systemRole === 'main_admin' ||
@@ -100,6 +100,12 @@ export const handleSelectTenant = async (
         {
           text: '🏆 مدیریت چالش‌ها',
           callback_data: `action_challenges_${tenantId}`
+        }
+      ]);
+      inlineKeyboard.push([
+        {
+          text: '🎯 مدیریت تارگت کاربران',
+          callback_data: `admin_targets_list_${tenantId}`
         }
       ]);
     }

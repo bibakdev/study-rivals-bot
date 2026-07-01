@@ -11,7 +11,8 @@ import { handleFailedAttempt } from './attempt-limit.action';
 import { handleSaveTargetText } from '../target/save-target.action';
 import { handleChallengeStateText } from '../challenge/challenge-state.action';
 import { handleTimeLogStateText } from '../time-log/time-log-state.action';
-import { handleAliasStateText } from '../tenant/alias-state.action'; // 👈 اضافه شد
+import { handleAliasStateText } from '../tenant/alias-state.action';
+import { handleAdminTargetStateText } from '../target/admin-manage-targets.action'; // 👈 اضافه شد
 
 export const handleBotOnboardingText = async (ctx: Context): Promise<void> => {
   if (!ctx.has(message('text')) || ctx.chat?.type !== 'private') return;
@@ -57,9 +58,17 @@ export const handleBotOnboardingText = async (ctx: Context): Promise<void> => {
     );
     if (isTimeLogHandled) return;
 
-    // 👈 ۴. بررسی وضعیت ثبت نام مستعار
+    // ۴. بررسی وضعیت ثبت نام مستعار
     const isAliasHandled = await handleAliasStateText(ctx, telegramId, rawText);
     if (isAliasHandled) return;
+
+    // 👈 ۵. بررسی وضعیت ویرایش تارگت توسط ادمین
+    const isAdminTargetHandled = await handleAdminTargetStateText(
+      ctx,
+      telegramId,
+      rawText
+    );
+    if (isAdminTargetHandled) return;
 
     const normalizedInput = rawText.replace(/[-\s]/g, '').toUpperCase();
     const normalizedMotherCode = env.MOTHER_SECRET_CODE.replace(
