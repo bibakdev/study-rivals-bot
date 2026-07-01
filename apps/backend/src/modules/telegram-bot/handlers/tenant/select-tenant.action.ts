@@ -131,6 +131,11 @@ export const handleSelectTenant = async (
           {
             text: '🏷 ثبت نام مستعار',
             callback_data: `action_alias_menu_${tenantId}`
+          },
+          // 👈 دکمه جدید برای ورود به منوی مدیریت تارگت‌ها به ردیف بالا اضافه شد
+          {
+            text: '🎯 مدیریت تارگت‌ها',
+            callback_data: `action_manage_users_targets_${tenantId}`
           }
         ]
       );

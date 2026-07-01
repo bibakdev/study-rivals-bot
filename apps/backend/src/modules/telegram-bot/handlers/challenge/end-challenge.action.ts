@@ -9,6 +9,7 @@ import { TenantMemberModel } from '#modules/tenant/tenant-member.model';
 import { TimeLogModel } from '#modules/time-log/time-log.model';
 import { formatMinutesToTime } from '#modules/time-log/utils/time-parser.util';
 import { logger } from '#utils/logger';
+import { sendNewChallengeCall } from './notify-targets.util'; // 👈 ایمپورت ماژول جدید
 
 // 👈 ماه‌های شمسی برای گزارش شفافیت
 const PERSIAN_MONTHS = [
@@ -289,6 +290,15 @@ export const handleDoEndChallenge = async (
             logger.error('Failed to send transparency chunk to group:', err);
           });
       }
+
+      // 👈 فاز ۵: ارسال پیام فراخوان چالش جدید و منشن کردن افراد دارای تارگت به عنوان آخرین پیام
+      await delay(500);
+      await sendNewChallengeCall(
+        ctx,
+        challenge.tenantId,
+        tenant.chatId,
+        tenant.topicId
+      );
     }
 
     await ctx
