@@ -30,7 +30,7 @@ class CronService {
         }
       },
       {
-        scheduled: true,
+        // 👈 پراپرتی scheduled حذف شد تا خطای تایپ‌اسکریپت برطرف شود (مقدار پیش‌فرض آن true است)
         timezone: 'Asia/Tehran'
       }
     );
