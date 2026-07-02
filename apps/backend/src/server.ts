@@ -5,6 +5,7 @@ import { connectDatabase } from '#core/config/database';
 import { env } from '#core/config/env';
 import { logger } from '#core/utils/logger';
 import { botService } from '#modules/telegram-bot/bot.service';
+import { cronService } from '#core/services/cron.service'; // 👈 ایمپورت سرویس کرون
 
 const startServer = async (): Promise<void> => {
   try {
@@ -23,6 +24,9 @@ const startServer = async (): Promise<void> => {
     botService.launch().catch((error) => {
       logger.error('Failed to launch Telegram bot from server.ts:', error);
     });
+
+    // ۴. ⏱ راه‌اندازی سیستم زمان‌بندی (Cron Jobs) برای گزارش‌های خودکار
+    cronService.initialize(); // 👈 فعال‌سازی کرون جاب گزارش پایان روز
   } catch (error) {
     logger.error('Critical Error during server startup:', error);
     process.exit(1);
