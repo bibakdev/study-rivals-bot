@@ -58,6 +58,12 @@ export const handleChangeTeamMembersRequest = async (
       ],
       [
         Markup.button.callback(
+          '🔄 جابجایی کاربر',
+          `move_member_select_user_${challengeId}_${teamIndex}`
+        )
+      ],
+      [
+        Markup.button.callback(
           '🔙 بازگشت',
           `edit_team_${challengeId}_${teamIndex}`
         )

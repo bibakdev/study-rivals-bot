@@ -85,6 +85,14 @@ import {
   handleAddMemberMenu,
   handleDoAddMember
 } from '#modules/telegram-bot/handlers/challenge/add-team-member.action';
+
+// 👈 ایمپورت اکشن‌های جدید جابجایی
+import {
+  handleMoveMemberSelectUser,
+  handleMoveMemberSelectTeam,
+  handleDoMoveMember
+} from '#modules/telegram-bot/handlers/challenge/move-team-member.action';
+
 import { handleSendTeamsToGroupRequest } from '#modules/telegram-bot/handlers/challenge/send-teams.action';
 import {
   handleEndChallengePrompt,
@@ -304,6 +312,20 @@ export class BotService {
     this.bot.action(
       /^do_add_member_([a-f\d]{24})_(\d+)_(\d+)$/i,
       handleDoAddMember
+    );
+
+    // 👈 اکشن‌های جابجایی اعضای تیم اضافه شد
+    this.bot.action(
+      /^move_member_select_user_([a-f\d]{24})_(\d+)$/i,
+      handleMoveMemberSelectUser
+    );
+    this.bot.action(
+      /^move_member_select_team_([a-f\d]{24})_(\d+)_(\d+)$/i,
+      handleMoveMemberSelectTeam
+    );
+    this.bot.action(
+      /^do_move_member_([a-f\d]{24})_(\d+)_(\d+)_(\d+)$/i,
+      handleDoMoveMember
     );
 
     // ادمین‌ها و نام مستعار
