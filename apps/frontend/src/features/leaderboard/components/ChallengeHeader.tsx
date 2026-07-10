@@ -44,14 +44,13 @@ export function ChallengeHeader({
 
   return (
     <div className="relative z-10 flex flex-col items-center mb-5 space-y-4 mt-2">
-      <div className="flex items-center justify-center gap-2.5 px-5 py-2 rounded-full bg-white/[0.03] border border-white/10 backdrop-blur-md shadow-[0_4px_20px_rgba(0,0,0,0.3)] animate-in fade-in slide-in-from-top-4 duration-500">
-        <CalendarDays className="w-4 h-4 text-gray-400" />
-        <span className="text-[11px] font-medium text-gray-300">
-          {imperialStartDate} تا {imperialEndDate}
-        </span>
-        <span className="w-1 h-1 rounded-full bg-gray-500" />
-        <span className="text-[11px] font-bold text-gray-200">
-          {metaData.durationDays} روزه
+      <div className="flex items-center justify-center px-4 py-2.5 rounded-full bg-white/[0.03] border border-white/10 backdrop-blur-md shadow-[0_4px_20px_rgba(0,0,0,0.3)] animate-in fade-in slide-in-from-top-4 duration-500">
+        <CalendarDays className="w-4 h-4 text-gray-400 shrink-0 ml-1.5" />
+        <span className="text-[11px] font-medium text-gray-300 text-center leading-relaxed">
+          رقابت از{' '}
+          <strong className="text-white mx-0.5">{imperialStartDate}</strong> تا{' '}
+          <strong className="text-white mx-0.5">{imperialEndDate}</strong>{' '}
+          (رقابت {metaData.durationDays} روزه)
         </span>
       </div>
 

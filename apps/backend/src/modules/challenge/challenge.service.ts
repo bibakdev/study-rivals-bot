@@ -8,6 +8,22 @@ import {
   ITenantMemberDocument
 } from '#modules/tenant/tenant-member.model';
 import mongoose from 'mongoose';
+import jalaali from 'jalaali-js';
+
+const PERSIAN_MONTHS = [
+  'فروردین',
+  'اردیبهشت',
+  'خرداد',
+  'تیر',
+  'امرداد',
+  'شهریور',
+  'مهر',
+  'آبان',
+  'آذر',
+  'دی',
+  'بهمن',
+  'اسفند'
+];
 
 interface ITimeLogAggregationResult {
   _id: number;
@@ -217,7 +233,16 @@ export const getActiveChallengeLeaderboard = async (
 
   teamRecords.sort((a, b) => b.totalMinutes - a.totalMinutes);
 
-  const endDateText = `پایان رقابت (${challenge.durationDays} روزه)`;
+  // محاسبه دقیق تاریخ روز آخر چالش برای نمایش
+  const lastDayMs =
+    challenge.startDate.getTime() + (challenge.durationDays - 1) * DAY_MS;
+  const tzEndDate = new Date(lastDayMs + TEHRAN_OFFSET);
+  const gy = tzEndDate.getUTCFullYear();
+  const gm = tzEndDate.getUTCMonth() + 1;
+  const gd = tzEndDate.getUTCDate();
+  const { jd, jm, jy } = jalaali.toJalaali(gy, gm, gd);
+
+  const endDateText = `${jd} ${PERSIAN_MONTHS[jm - 1]} ${jy}`;
 
   return {
     challenge: {
