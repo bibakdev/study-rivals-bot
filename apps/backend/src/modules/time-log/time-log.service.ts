@@ -61,7 +61,7 @@ export const logTimeService = async (
   const calculatedDay = Math.floor((now - startMs) / DAY_MS) + 1;
   const currentDay = Math.min(
     challenge.durationDays,
-    Math.max(1, calculatedDay)
+    Math.max(0, calculatedDay) // 👈 تغییر 1 به 0 برای پشتیبانی پیش از شروع
   );
 
   // ⛔ گارد امنیتی هماهنگ: جلوگیری از ثبت زمان برای روزهایی که در تقویم ایران هنوز فرا نرسیده‌اند

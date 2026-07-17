@@ -88,7 +88,7 @@ export const getActiveChallengeLeaderboard = async (
     Math.floor((now + TEHRAN_OFFSET - (startMs + TEHRAN_OFFSET)) / DAY_MS) + 1;
   const currentDay = Math.min(
     challenge.durationDays,
-    Math.max(1, calculatedDay)
+    Math.max(0, calculatedDay) // 👈 تغییر 1 به 0 برای مدیریت زمان پیش از شروع چالش
   );
 
   const timeLogsAggregation =

@@ -33,7 +33,7 @@ export const handleDailyLeaderboardMenuRequest = async (
     const calculatedDay =
       Math.floor((now + TEHRAN_OFFSET - (startMs + TEHRAN_OFFSET)) / DAY_MS) +
       1;
-    const currentDay = Math.min(duration, Math.max(1, calculatedDay));
+    const currentDay = Math.min(duration, Math.max(0, calculatedDay)); // 👈 تغییر 1 به 0
 
     const inlineKeyboard: any[][] = [];
 

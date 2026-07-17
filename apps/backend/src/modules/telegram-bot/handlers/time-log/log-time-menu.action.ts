@@ -76,7 +76,7 @@ export const handleLogTimeMenuRequest = async (
     const calculatedDay =
       Math.floor((now + TEHRAN_OFFSET - (startMs + TEHRAN_OFFSET)) / DAY_MS) +
       1;
-    const currentDay = Math.min(duration, Math.max(1, calculatedDay));
+    const currentDay = Math.min(duration, Math.max(0, calculatedDay)); // 👈 تغییر 1 به 0
 
     const inlineKeyboard = [];
 
@@ -100,6 +100,7 @@ export const handleLogTimeMenuRequest = async (
 
     let message = `⏱ **ثبت ساعت مطالعه**\n\n`;
     if (inlineKeyboard.length === 1) {
+      // دکمه بازگشت تنها دکمه باشد
       message += `⏳ چالش فعال است، اما هنوز به تاریخ شروع روز اول نرسیده‌ایم.`;
     } else {
       message += `لطفاً روزی که قصد ثبت زمان برای آن را دارید انتخاب کنید:\n(روزهای جدید به صورت خودکار هر ۲۴ ساعت ظاهر می‌شوند)`;

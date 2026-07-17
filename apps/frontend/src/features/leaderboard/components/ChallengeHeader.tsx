@@ -72,7 +72,9 @@ export function ChallengeHeader({
         >
           {isArchived
             ? 'رتبه‌بندی نهایی رقابت آرشیو شده'
-            : `روز ${metaData.currentDay} چالش`}
+            : metaData.currentDay === 0
+              ? '⏳ رقابت هنوز شروع نشده' // 👈 مدیریت زمان پیش از شروع چالش
+              : `روز ${metaData.currentDay} چالش`}
         </h2>
       </div>
     </div>

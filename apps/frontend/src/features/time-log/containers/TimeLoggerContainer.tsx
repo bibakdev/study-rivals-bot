@@ -93,6 +93,25 @@ export function TimeLoggerContainer() {
   }
 
   const { durationDays, currentDay } = leaderboardData.challenge;
+
+  // 👈 گارد جدید برای زمانی که چالش هنوز شروع نشده است
+  if (currentDay === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[40vh] w-full text-center px-6">
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 mb-4 shadow-[0_0_20px_rgba(245,158,11,0.05)]">
+          <Trophy className="w-8 h-8 text-amber-400 mx-auto" />
+        </div>
+        <h3 className="text-sm font-bold text-gray-200 mb-1">
+          چالش هنوز شروع نشده است
+        </h3>
+        <p className="text-xs text-gray-500 max-w-xs leading-relaxed">
+          لطفاً تا زمان فرا رسیدن تاریخ شروع چالش منتظر بمانید. امکان ثبت ساعت
+          در حال حاضر وجود ندارد.
+        </p>
+      </div>
+    );
+  }
+
   const currentLoggedMinutes = localDaysMinutes.get(selectedDay) || 0;
 
   const handleSubmit = () => {

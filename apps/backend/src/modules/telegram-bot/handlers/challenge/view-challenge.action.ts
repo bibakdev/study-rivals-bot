@@ -82,7 +82,7 @@ export const handleViewChallengeRequest = async (
         1;
       const daysPassed = Math.min(
         challenge.durationDays,
-        Math.max(1, calculatedDay)
+        Math.max(0, calculatedDay) // 👈 تغییر 1 به 0
       );
 
       extraInfo = `🗓 **روزهای سپری شده:** ${daysPassed} روز از ${challenge.durationDays} روز\n`;
